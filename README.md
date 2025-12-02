@@ -167,32 +167,6 @@ See `backend/config/field-mappings.yaml` for complete list.
 - Zustand (State management)
 - Recharts (Data visualization)
 
-## Next Steps
-
-### Session 2: Business Rules Engine
-- Implement rules engine core
-- Create rule evaluator
-- Build violation detector
-- Add remediation suggestions
-
-### Session 3: CSV Upload & Field Mapping
-- Build file upload UI
-- Implement CSV parser
-- Create field mapper with AI
-- Handle multiple formats
-
-### Session 4: Processing Animation
-- Create processing page
-- Add real-time updates
-- Build progress indicators
-- Handle errors gracefully
-
-### Session 5: Results Display
-- Build results dashboard
-- Create violation cards
-- Add charts and metrics
-- Implement filtering/sorting
-
 ## Development
 
 ### Running Tests
