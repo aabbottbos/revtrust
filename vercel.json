@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "projects": [
+    {
+      "name": "revtrust-frontend",
+      "rootDirectory": "frontend",
+      "buildCommand": "npm run build",
+      "devCommand": "npm run dev",
+      "installCommand": "npm install",
+      "framework": "nextjs"
+    }
+  ]
+}

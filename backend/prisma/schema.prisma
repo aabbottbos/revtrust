@@ -1,0 +1,218 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider             = "prisma-client-py"
+  interface            = "asyncio"
+  recursive_type_depth = 5
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User management
+model User {
+  id            String    @id @default(uuid())
+  clerkId       String    @unique
+  email         String    @unique
+  firstName     String?
+  lastName      String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  analyses      Analysis[]
+
+  @@map("users")
+}
+
+// Analysis session
+model Analysis {
+  id              String            @id @default(uuid())
+  userId          String
+  fileName        String
+  fileUrl         String?
+  uploadDate      DateTime          @default(now())
+  processingStatus ProcessingStatus @default(PENDING)
+  errorMessage    String?
+
+  // Summary metrics
+  totalDeals      Int               @default(0)
+  dealsWithIssues Int               @default(0)
+  healthScore     Float             @default(0)
+
+  // Metadata
+  totalAmount     Float?
+  avgDealSize     Float?
+  totalCritical   Int               @default(0)
+  totalWarnings   Int               @default(0)
+
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  completedAt     DateTime?
+
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deals           Deal[]
+
+  @@index([userId])
+  @@index([processingStatus])
+  @@map("analyses")
+}
+
+enum ProcessingStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+// Deal/Opportunity
+model Deal {
+  id                String    @id @default(uuid())
+  analysisId        String
+
+  // Core fields (normalized from CSV)
+  externalId        String?   // Original deal ID from CRM
+  name              String
+  accountName       String?
+  accountId         String?
+
+  // Financial
+  amount            Float?
+  currency          String?   @default("USD")
+
+  // Dates
+  closeDate         DateTime?
+  createdDate       DateTime?
+  lastActivityDate  DateTime?
+
+  // Sales process
+  stage             String?
+  probability       Float?
+  forecastCategory  String?
+
+  // Ownership
+  ownerName         String?
+  ownerEmail        String?
+
+  // Contact info
+  contactName       String?
+  contactEmail      String?
+  contactPhone      String?
+
+  // Additional context
+  leadSource        String?
+  industry          String?
+  type              String?
+  description       String?
+  nextSteps         String?
+
+  // Custom fields (stored as JSON)
+  customFields      Json?
+
+  // Analysis results
+  hasIssues         Boolean   @default(false)
+  criticalCount     Int       @default(0)
+  warningCount      Int       @default(0)
+  infoCount         Int       @default(0)
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  analysis          Analysis  @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  violations        Violation[]
+
+  @@index([analysisId])
+  @@index([hasIssues])
+  @@map("deals")
+}
+
+// Rule violation
+model Violation {
+  id                  String         @id @default(uuid())
+  dealId              String
+
+  // Rule identification
+  ruleId              String
+  ruleName            String
+  ruleCategory        ViolationCategory
+
+  // Violation details
+  severity            Severity
+  message             String
+  fieldName           String?
+  currentValue        String?
+  expectedValue       String?
+
+  // Remediation
+  remediationAction   String?
+  remediationOwner    String?        // "Rep", "Manager", "Auto"
+  automatable         Boolean        @default(false)
+
+  // Metadata
+  detectedAt          DateTime       @default(now())
+  acknowledged        Boolean        @default(false)
+
+  deal                Deal           @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([dealId])
+  @@index([severity])
+  @@index([ruleCategory])
+  @@map("violations")
+}
+
+enum Severity {
+  CRITICAL
+  WARNING
+  INFO
+}
+
+enum ViolationCategory {
+  DATA_QUALITY
+  SALES_HYGIENE
+  FORECASTING
+  PROGRESSION
+  ENGAGEMENT
+  COMPLIANCE
+}
+
+// Business rules configuration (cached in DB)
+model BusinessRule {
+  id              String            @id @default(uuid())
+  ruleId          String            @unique
+  name            String
+  category        ViolationCategory
+  severity        Severity
+  description     String
+  enabled         Boolean           @default(true)
+
+  // Rule logic
+  condition       Json              // Stored rule condition
+  message         String
+  remediation     String?
+
+  // Configuration
+  applicableStages String[]         // Which stages this rule applies to
+  priority        Int               @default(0)
+
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@map("business_rules")
+}
+
+// Field mapping configuration (cached in DB)
+model FieldMapping {
+  id              String    @id @default(uuid())
+  standardField   String    @unique
+  aliases         String[]  // Common variations
+  required        Boolean   @default(false)
+  dataType        String    // "string", "number", "date", "currency"
+  description     String?
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@map("field_mappings")
+}

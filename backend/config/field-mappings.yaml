@@ -1,0 +1,346 @@
+# Field Mappings Configuration
+# Maps standard RevTrust fields to common CRM field variations
+
+version: "1.0"
+
+mappings:
+  # Core identifier
+  deal_id:
+    aliases:
+      - "opportunity id"
+      - "deal id"
+      - "opp id"
+      - "id"
+      - "opportunity_id"
+      - "deal_id"
+      - "oppid"
+    required: false
+    data_type: "string"
+    description: "Unique identifier for the deal/opportunity"
+
+  # Deal name
+  deal_name:
+    aliases:
+      - "opportunity name"
+      - "deal name"
+      - "name"
+      - "opp name"
+      - "opportunity_name"
+      - "deal_name"
+      - "title"
+    required: true
+    data_type: "string"
+    description: "Name or title of the deal"
+
+  # Account information
+  account_name:
+    aliases:
+      - "account name"
+      - "company"
+      - "company name"
+      - "account"
+      - "organization"
+      - "customer"
+      - "account_name"
+      - "company_name"
+    required: true
+    data_type: "string"
+    description: "Name of the account/company"
+
+  account_id:
+    aliases:
+      - "account id"
+      - "company id"
+      - "account_id"
+      - "company_id"
+      - "accountid"
+    required: false
+    data_type: "string"
+    description: "Unique identifier for the account"
+
+  # Financial fields
+  amount:
+    aliases:
+      - "amount"
+      - "deal amount"
+      - "opportunity amount"
+      - "value"
+      - "deal value"
+      - "revenue"
+      - "deal_amount"
+      - "opp_amount"
+      - "arr"
+      - "acv"
+      - "tcv"
+    required: true
+    data_type: "currency"
+    description: "Deal amount or value"
+
+  currency:
+    aliases:
+      - "currency"
+      - "currency code"
+      - "currency_code"
+      - "deal currency"
+    required: false
+    data_type: "string"
+    description: "Currency code (USD, EUR, etc.)"
+
+  # Date fields
+  close_date:
+    aliases:
+      - "close date"
+      - "expected close"
+      - "expected close date"
+      - "target close"
+      - "closing date"
+      - "close_date"
+      - "expected_close_date"
+      - "target_close_date"
+      - "closed date"
+      - "est. close date"
+    required: true
+    data_type: "date"
+    description: "Expected or actual close date"
+
+  created_date:
+    aliases:
+      - "created date"
+      - "create date"
+      - "creation date"
+      - "date created"
+      - "created_date"
+      - "create_date"
+      - "opened date"
+    required: false
+    data_type: "date"
+    description: "Date the deal was created"
+
+  last_activity_date:
+    aliases:
+      - "last activity"
+      - "last activity date"
+      - "last modified"
+      - "last modified date"
+      - "last_activity_date"
+      - "last_modified_date"
+      - "last contact"
+      - "last touch"
+    required: false
+    data_type: "date"
+    description: "Date of last activity on the deal"
+
+  # Sales process fields
+  stage:
+    aliases:
+      - "stage"
+      - "stage name"
+      - "sales stage"
+      - "opportunity stage"
+      - "pipeline stage"
+      - "deal stage"
+      - "stage_name"
+      - "sales_stage"
+      - "current stage"
+    required: true
+    data_type: "string"
+    description: "Current stage in the sales pipeline"
+
+  probability:
+    aliases:
+      - "probability"
+      - "win probability"
+      - "probability %"
+      - "probability (%)"
+      - "% probability"
+      - "close probability"
+      - "probability_percent"
+    required: false
+    data_type: "number"
+    description: "Probability of winning (0-100)"
+
+  forecast_category:
+    aliases:
+      - "forecast category"
+      - "forecast"
+      - "forecast_category"
+      - "forecasting"
+      - "commit status"
+    required: false
+    data_type: "string"
+    description: "Forecast category (Pipeline, Best Case, Commit, etc.)"
+
+  # Owner information
+  owner_name:
+    aliases:
+      - "owner"
+      - "owner name"
+      - "sales rep"
+      - "rep name"
+      - "account owner"
+      - "opportunity owner"
+      - "owner_name"
+      - "rep"
+      - "assigned to"
+    required: true
+    data_type: "string"
+    description: "Name of the deal owner"
+
+  owner_email:
+    aliases:
+      - "owner email"
+      - "rep email"
+      - "owner_email"
+      - "rep_email"
+      - "sales rep email"
+    required: false
+    data_type: "string"
+    description: "Email of the deal owner"
+
+  # Contact information
+  contact_name:
+    aliases:
+      - "contact name"
+      - "primary contact"
+      - "contact"
+      - "decision maker"
+      - "contact_name"
+      - "primary_contact"
+      - "key contact"
+    required: false
+    data_type: "string"
+    description: "Primary contact name"
+
+  contact_email:
+    aliases:
+      - "contact email"
+      - "email"
+      - "contact_email"
+      - "primary contact email"
+      - "decision maker email"
+    required: false
+    data_type: "string"
+    description: "Primary contact email"
+
+  contact_phone:
+    aliases:
+      - "contact phone"
+      - "phone"
+      - "contact_phone"
+      - "phone number"
+      - "mobile"
+    required: false
+    data_type: "string"
+    description: "Primary contact phone"
+
+  # Additional context
+  lead_source:
+    aliases:
+      - "lead source"
+      - "source"
+      - "origin"
+      - "lead_source"
+      - "deal source"
+      - "how did you hear"
+    required: false
+    data_type: "string"
+    description: "Source of the lead"
+
+  industry:
+    aliases:
+      - "industry"
+      - "vertical"
+      - "sector"
+      - "account industry"
+    required: false
+    data_type: "string"
+    description: "Industry or vertical"
+
+  type:
+    aliases:
+      - "type"
+      - "deal type"
+      - "opportunity type"
+      - "opp type"
+      - "deal_type"
+    required: false
+    data_type: "string"
+    description: "Type of deal (New Business, Renewal, Upsell, etc.)"
+
+  description:
+    aliases:
+      - "description"
+      - "notes"
+      - "deal description"
+      - "opportunity description"
+      - "details"
+    required: false
+    data_type: "string"
+    description: "Deal description or notes"
+
+  next_steps:
+    aliases:
+      - "next steps"
+      - "next step"
+      - "next_steps"
+      - "action items"
+      - "follow up"
+    required: false
+    data_type: "string"
+    description: "Next steps or action items"
+
+# Data type parsing rules
+data_types:
+  string:
+    - "trim"
+    - "normalize_whitespace"
+
+  number:
+    - "remove_commas"
+    - "parse_float"
+    - "clamp_0_100"  # For probability
+
+  currency:
+    - "remove_currency_symbols"
+    - "remove_commas"
+    - "parse_float"
+
+  date:
+    - "parse_flexible"  # Try multiple date formats
+    - "validate_reasonable_range"  # 1990-2050
+
+# Parsing configuration
+parsing:
+  date_formats:
+    - "%Y-%m-%d"
+    - "%m/%d/%Y"
+    - "%d/%m/%Y"
+    - "%Y/%m/%d"
+    - "%b %d, %Y"
+    - "%B %d, %Y"
+    - "%d-%b-%Y"
+    - "%Y-%m-%dT%H:%M:%S"
+    - "%Y-%m-%dT%H:%M:%SZ"
+
+  currency_symbols:
+    - "$"
+    - "€"
+    - "£"
+    - "¥"
+    - "USD"
+    - "EUR"
+    - "GBP"
+
+  boolean_true_values:
+    - "true"
+    - "yes"
+    - "y"
+    - "1"
+    - "t"
+
+  boolean_false_values:
+    - "false"
+    - "no"
+    - "n"
+    - "0"
+    - "f"
