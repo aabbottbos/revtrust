@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { UserButton, useUser } from "@clerk/nextjs"
 import { Button } from "@/components/ui/button"
 import { Upload, History, Home } from "lucide-react"
@@ -13,9 +14,15 @@ export function NavBar() {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-orange-500 rounded" />
-            <span className="font-bold text-xl">RevTrust</span>
+          <Link href="/" className="flex items-center">
+            <Image
+              src="/revtrust-logo.png"
+              alt="RevTrust"
+              width={200}
+              height={50}
+              className="h-10 w-auto"
+              priority
+            />
           </Link>
 
           {/* Navigation Links */}
