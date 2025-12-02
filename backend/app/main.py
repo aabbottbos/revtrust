@@ -12,6 +12,8 @@ load_dotenv()
 async def lifespan(app: FastAPI):
     # Startup
     print("🚀 Starting RevTrust API...")
+    allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000")
+    print(f"📍 ALLOWED_ORIGINS: {allowed_origins_str}")
     yield
     # Shutdown
     print("👋 Shutting down RevTrust API...")
@@ -23,10 +25,14 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS
+# CORS - Parse origins and strip whitespace
+allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000")
+allowed_origins = [origin.strip() for origin in allowed_origins_str.split(",")]
+print(f"🌐 Configured CORS origins: {allowed_origins}")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(","),
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
