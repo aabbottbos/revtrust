@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Progress } from "@/components/ui/progress"
 import { CheckCircle2, Loader2 } from "lucide-react"
@@ -11,7 +11,7 @@ interface ProcessingStep {
   completed: boolean
 }
 
-export default function ProcessingPage() {
+function ProcessingContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const analysisId = searchParams.get("id")
@@ -190,5 +190,17 @@ export default function ProcessingPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function ProcessingPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
+        <Loader2 className="h-16 w-16 text-blue-600 animate-spin" />
+      </div>
+    }>
+      <ProcessingContent />
+    </Suspense>
   )
 }
