@@ -41,6 +41,11 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+
+  /* RevTrust Brand Colors */
+  --color-revtrust-blue: #2563EB;
+  --color-revtrust-orange: #F97316;
+  --color-revtrust-yellow: #FDB022;
 }
 
 :root {
@@ -117,7 +122,21 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-bold;
+  }
+}
+
+@layer components {
+  .section-padding {
+    @apply py-20 lg:py-32;
+  }
+
+  .container-padding {
+    @apply px-4 md:px-6 lg:px-8;
   }
 }
 

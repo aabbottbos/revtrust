@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle } from "lucide-react"
+import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, Download } from "lucide-react"
 import { UploadValidator } from "@/lib/upload-validator"
 import { handleAPIResponse, getErrorMessage } from "@/lib/api-errors"
 
@@ -16,6 +16,25 @@ export default function UploadPage() {
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [validationError, setValidationError] = useState<string | null>(null)
+
+  const handleDownloadTemplate = () => {
+    const csvContent = `Deal Name,Deal Amount,Close Date,Stage,Owner,Next Step,Last Activity Date
+Acme Corp - Enterprise License,125000,2024-03-15,Negotiation,John Smith,Send proposal,2024-02-28
+TechStart Inc - Annual Subscription,45000,2024-02-20,Discovery,Sarah Johnson,Schedule demo,2024-02-25
+Global Solutions - Professional Services,89000,2024-04-10,Qualification,Mike Davis,Identify decision makers,2024-02-22
+Innovation Labs - Product Bundle,156000,2024-03-25,Proposal,Emily Chen,Follow up on pricing,2024-02-27
+Enterprise Co - Multi-Year Deal,280000,2024-05-01,Discovery,John Smith,Technical requirements call,2024-02-26`
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.setAttribute('href', url)
+    link.setAttribute('download', 'revtrust-sample-pipeline.csv')
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault()
@@ -110,12 +129,33 @@ export default function UploadPage() {
 
         <Card className="shadow-lg">
           <CardHeader>
-            <CardTitle>Select Your File</CardTitle>
-            <CardDescription>
-              Upload a CSV or Excel file containing your pipeline data
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Select Your File</CardTitle>
+                <CardDescription>
+                  Upload a CSV or Excel file containing your pipeline data
+                </CardDescription>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadTemplate}
+                className="flex items-center gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Sample CSV
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="space-y-6">
+            {/* Sample Template Info */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <p className="text-sm text-blue-900">
+                <strong>New to RevTrust?</strong> Download our sample CSV template to see the format we expect.
+                Supported CRMs: Salesforce, HubSpot, Pipedrive, or any CRM that exports to CSV.
+              </p>
+            </div>
+
             {/* Validation Error Alert */}
             {validationError && (
               <Alert variant="destructive">
