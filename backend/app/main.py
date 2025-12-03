@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 import os
 from dotenv import load_dotenv
 
-from app.routes import analyze, health
+from app.routes import analyze, health, ai_analysis
 
 load_dotenv()
 
@@ -41,6 +41,7 @@ app.add_middleware(
 # Routes
 app.include_router(health.router, prefix="/api", tags=["Health"])
 app.include_router(analyze.router, prefix="/api", tags=["Analysis"])
+app.include_router(ai_analysis.router, tags=["AI Analysis"])
 
 if __name__ == "__main__":
     import uvicorn

@@ -323,10 +323,36 @@ async def get_analysis_result(analysis_id: str) -> Dict[str, Any]:
             violations_by_deal[deal_id] = []
         violations_by_deal[deal_id].append(violation)
 
+    # Group violations by category for the issues table
+    issues_by_category_dict = {}
+    for violation in result.get("violations", []):
+        rule_name = violation.get("rule_name", "Unknown")
+        severity = violation.get("severity", "info")
+
+        if rule_name not in issues_by_category_dict:
+            issues_by_category_dict[rule_name] = {
+                "category": rule_name,
+                "count": 0,
+                "severity": severity,
+                "sample_violation": {
+                    "rule_name": rule_name,
+                    "message": violation.get("message", "")
+                }
+            }
+        issues_by_category_dict[rule_name]["count"] += 1
+
+    # Sort by severity then count
+    severity_order = {"critical": 0, "warning": 1, "info": 2}
+    issues_by_category = sorted(
+        issues_by_category_dict.values(),
+        key=lambda x: (severity_order.get(x["severity"], 3), -x["count"])
+    )
+
     # Return enhanced result
     return {
         "analysis_id": analysis_id,
-        "filename": result.get("file_info", {}).get("filename", "Unknown"),
+        "file_name": result.get("file_info", {}).get("filename", "Unknown"),
+        "analyzed_at": status_data.get("updated_at"),
         "total_deals": total_deals,
         "deals_with_issues": deals_with_issues,
         "deals_without_issues": deals_without_issues,
@@ -337,13 +363,15 @@ async def get_analysis_result(analysis_id: str) -> Dict[str, Any]:
         "critical_issues": result.get("analysis", {}).get("total_critical", 0),
         "warning_issues": result.get("analysis", {}).get("total_warnings", 0),
         "info_issues": result.get("analysis", {}).get("total_info", 0),
+        "issues_by_category": issues_by_category,
         "violations": result.get("violations", []),
         "violations_by_deal": violations_by_deal,
         "violations_by_category": result.get("violations_by_category", {}),
         "violations_by_severity": result.get("violations_by_severity", {}),
         "file_info": result.get("file_info", {}),
         "field_mapping": result.get("field_mapping", {}),
-        "analyzed_at": status_data.get("updated_at"),
+        # Legacy fields for backward compatibility
+        "filename": result.get("file_info", {}).get("filename", "Unknown"),
     }
 
 
