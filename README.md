@@ -2,8 +2,6 @@
 
 Turn messy pipeline data into accurate forecasts and actionable strategy.
 
-**Status:** ✅ POC Complete - Ready for Production Deployment
-
 🚀 **[Quick Deploy Guide](./QUICK_DEPLOY.md)** | 📖 **[Full Deployment Docs](./DEPLOYMENT.md)**
 
 ## Project Structure
@@ -235,7 +233,3 @@ lsof -i :8000
 # Kill the process
 kill -9 <PID>
 ```
-
-## License
-
-Private - All rights reserved
