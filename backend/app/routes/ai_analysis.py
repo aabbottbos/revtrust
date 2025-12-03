@@ -73,17 +73,36 @@ async def run_ai_analysis(
     # Run AI analysis
     try:
         ai_service = get_ai_service()
+
+        # Analyze all deals
         results = await ai_service.analyze_pipeline(deals, violations_by_deal)
 
-        # Store results
+        # Generate pipeline summary
+        pipeline_summary = await ai_service.generate_pipeline_summary(deals, results)
+
+        # Calculate additional metrics
+        avg_risk_score = sum(r.risk_score for r in results) / len(results) if results else 0
+        critical_actions = sum(1 for r in results if r.action_priority == 'critical')
+
+        # Store results with enhanced data
         ai_analysis_store[analysis_id] = {
             "analysis_id": analysis_id,
             "user_id": user_id,
             "status": "completed",
+            "pipeline_summary": pipeline_summary,
+            "metrics": {
+                "total_deals_analyzed": len(results),
+                "average_risk_score": round(avg_risk_score, 1),
+                "high_risk_count": sum(1 for r in results if r.risk_level == "high"),
+                "medium_risk_count": sum(1 for r in results if r.risk_level == "medium"),
+                "low_risk_count": sum(1 for r in results if r.risk_level == "low"),
+                "critical_actions_needed": critical_actions
+            },
             "results": [
                 {
                     "deal_id": r.deal_id,
                     "deal_name": r.deal_name,
+                    "deal_amount": next((d.get('amount', 0) for d in deals if d.get('id') == r.deal_id), 0),
                     "risk_score": r.risk_score,
                     "risk_level": r.risk_level,
                     "risk_factors": r.risk_factors,
@@ -94,22 +113,22 @@ async def run_ai_analysis(
                     "confidence": r.confidence
                 }
                 for r in results
-            ],
-            "total_deals_analyzed": len(results),
-            "high_risk_count": sum(1 for r in results if r.risk_level == "high"),
-            "medium_risk_count": sum(1 for r in results if r.risk_level == "medium"),
-            "low_risk_count": sum(1 for r in results if r.risk_level == "low")
+            ]
         }
 
         return {
             "status": "completed",
             "message": "AI analysis completed successfully",
             "ai_analysis_id": analysis_id,
-            "deals_analyzed": len(results)
+            "deals_analyzed": len(results),
+            "average_risk_score": round(avg_risk_score, 1),
+            "critical_actions": critical_actions
         }
 
     except Exception as e:
         print(f"AI analysis error: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(500, f"AI analysis failed: {str(e)}")
 
 
@@ -130,6 +149,28 @@ async def get_ai_analysis(
         raise HTTPException(403, "Not authorized")
 
     return ai_analysis
+
+
+@router.get("/analysis/{analysis_id}/summary")
+async def get_pipeline_summary(
+    analysis_id: str,
+    user_id: str = Depends(get_current_user_id)
+):
+    """Get AI-generated pipeline summary"""
+
+    if analysis_id not in ai_analysis_store:
+        raise HTTPException(404, "AI analysis not found")
+
+    ai_analysis = ai_analysis_store[analysis_id]
+
+    # Verify ownership
+    if ai_analysis.get("user_id") != user_id:
+        raise HTTPException(403, "Not authorized")
+
+    return {
+        "summary": ai_analysis.get("pipeline_summary", {}),
+        "metrics": ai_analysis.get("metrics", {})
+    }
 
 
 @router.get("/analysis/{analysis_id}/top-risks")
