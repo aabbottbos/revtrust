@@ -54,9 +54,12 @@ export default function ResultsPage() {
   const [result, setResult] = useState<AnalysisResult | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [hasAiResults, setHasAiResults] = useState(false)
+  const [aiLoading, setAiLoading] = useState(false)
 
   useEffect(() => {
     fetchResults()
+    checkForAiResults()
   }, [analysisId])
 
   const fetchResults = async () => {
@@ -76,6 +79,40 @@ export default function ResultsPage() {
       setError(err instanceof Error ? err.message : "Failed to load results")
     } finally {
       setLoading(false)
+    }
+  }
+
+  const checkForAiResults = async () => {
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/ai/analysis/${analysisId}`
+      )
+      if (response.ok) {
+        setHasAiResults(true)
+      }
+    } catch (err) {
+      // No AI results yet
+    }
+  }
+
+  const handleRunAiAnalysis = async () => {
+    try {
+      setAiLoading(true)
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/ai/analyze/${analysisId}`,
+        { method: 'POST' }
+      )
+
+      if (!response.ok) {
+        throw new Error("Failed to run AI analysis")
+      }
+
+      // Redirect to AI results page
+      router.push(`/results/${analysisId}/ai`)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to run AI analysis")
+    } finally {
+      setAiLoading(false)
     }
   }
 
@@ -367,26 +404,51 @@ export default function ResultsPage() {
 
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <Button
-              size="lg"
-              className="bg-revtrust-blue hover:bg-blue-700 text-white px-8"
-              onClick={() => router.push('/pricing')}
-            >
-              <Lock className="w-5 h-5 mr-2" />
-              Unlock AI Insights
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="px-8"
-              onClick={() => router.push('/sign-up')}
-            >
-              Start Free Trial
-            </Button>
+            {hasAiResults ? (
+              <Button
+                size="lg"
+                className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white px-8"
+                onClick={() => router.push(`/results/${analysisId}/ai`)}
+              >
+                <Sparkles className="w-5 h-5 mr-2" />
+                View AI Insights
+              </Button>
+            ) : (
+              <Button
+                size="lg"
+                className="bg-revtrust-blue hover:bg-blue-700 text-white px-8"
+                onClick={handleRunAiAnalysis}
+                disabled={aiLoading}
+              >
+                {aiLoading ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                    Running AI Analysis...
+                  </>
+                ) : (
+                  <>
+                    <Lock className="w-5 h-5 mr-2" />
+                    Execute AI Review
+                  </>
+                )}
+              </Button>
+            )}
+            {!hasAiResults && (
+              <Button
+                size="lg"
+                variant="outline"
+                className="px-8"
+                onClick={() => router.push('/pricing')}
+              >
+                View Pricing
+              </Button>
+            )}
           </div>
 
           <p className="text-center mt-4 text-sm text-slate-600">
-            Pro plan: $59/month • 30-day money-back guarantee
+            {hasAiResults
+              ? "Your AI insights are ready to view"
+              : "Pro plan: $59/month • 30-day money-back guarantee"}
           </p>
         </Card>
 
