@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, Download } from "lucide-react"
 import { UploadValidator } from "@/lib/upload-validator"
 import { handleAPIResponse, getErrorMessage } from "@/lib/api-errors"
+import { analytics } from "@/lib/analytics"
 
 export default function UploadPage() {
   const router = useRouter()
@@ -106,6 +107,11 @@ Enterprise Co - Multi-Year Deal,280000,2024-05-01,Discovery,John Smith,Technical
       )
 
       const data = await handleAPIResponse(response)
+
+      // Track successful upload
+      analytics.csvUploaded(file.size, data.deal_count || 0)
+      analytics.analysisStarted(data.analysis_id)
+
       router.push(`/processing?id=${data.analysis_id}`)
     } catch (err) {
       console.error("Upload error:", err)

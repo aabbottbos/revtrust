@@ -1,10 +1,11 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import os
+import time
 from dotenv import load_dotenv
 
-from app.routes import analyze, health, ai_analysis, stripe_routes, webhooks
+from app.routes import analyze, health, ai_analysis, stripe_routes, webhooks, feedback, analytics, admin
 
 load_dotenv()
 
@@ -38,12 +39,35 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Performance monitoring middleware
+@app.middleware("http")
+async def add_process_time_header(request: Request, call_next):
+    start_time = time.time()
+    response = await call_next(request)
+    process_time = time.time() - start_time
+    response.headers["X-Process-Time"] = str(process_time)
+
+    # Log slow requests (> 2 seconds)
+    if process_time > 2.0:
+        print(f"⚠️  Slow request: {request.method} {request.url.path} took {process_time:.2f}s")
+
+    # Log very slow requests (> 5 seconds) with more detail
+    if process_time > 5.0:
+        print(f"🚨 VERY SLOW REQUEST: {request.method} {request.url.path}")
+        print(f"   Time: {process_time:.2f}s")
+        print(f"   Client: {request.client.host if request.client else 'unknown'}")
+
+    return response
+
 # Routes
 app.include_router(health.router, prefix="/api", tags=["Health"])
 app.include_router(analyze.router, prefix="/api", tags=["Analysis"])
 app.include_router(ai_analysis.router, tags=["AI Analysis"])
 app.include_router(stripe_routes.router, tags=["Stripe"])
 app.include_router(webhooks.router, tags=["Webhooks"])
+app.include_router(feedback.router, tags=["Feedback"])
+app.include_router(analytics.router, tags=["Analytics"])
+app.include_router(admin.router, tags=["Admin"])
 
 if __name__ == "__main__":
     import uvicorn

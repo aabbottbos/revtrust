@@ -2,6 +2,7 @@
 Subscription service for checking user access to AI features
 """
 
+import os
 from prisma import Prisma
 
 
@@ -19,6 +20,15 @@ class SubscriptionService:
 
     async def check_ai_access(self, user_id: str) -> bool:
         """Check if user has access to AI features"""
+
+        # Check if payment is required
+        require_payment = os.getenv("REQUIRE_PAYMENT", "true").lower() == "true"
+
+        # If payment is not required (dev mode), grant access to all users
+        if not require_payment:
+            print(f"⚙️  Payment disabled - granting AI access to {user_id}")
+            return True
+
         try:
             await self.connect()
 

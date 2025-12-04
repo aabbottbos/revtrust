@@ -19,6 +19,7 @@ import {
 } from "lucide-react"
 import { HealthScoreChart } from "@/components/features/HealthScoreChart"
 import { ExportButton } from "@/components/features/ExportButton"
+import { analytics } from "@/lib/analytics"
 
 interface IssueCategory {
   category: string
@@ -75,6 +76,13 @@ export default function ResultsPage() {
 
       const data = await response.json()
       setResult(data)
+
+      // Track analysis completion
+      analytics.analysisCompleted(
+        analysisId,
+        data.critical_issues + data.warning_issues,
+        data.health_score
+      )
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load results")
     } finally {
@@ -98,6 +106,10 @@ export default function ResultsPage() {
   const handleRunAiAnalysis = async () => {
     try {
       setAiLoading(true)
+
+      // Track AI review start
+      analytics.aiReviewStarted(analysisId)
+
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/ai/analyze/${analysisId}`,
         { method: 'POST' }

@@ -29,7 +29,7 @@ async def create_checkout_session(
         await prisma.connect()
 
         user = await prisma.user.find_unique(
-            where={"clerkUserId": user_id}
+            where={"clerkId": user_id}
         )
 
         if not user:
@@ -72,7 +72,7 @@ async def create_portal_session(
         await prisma.connect()
 
         user = await prisma.user.find_unique(
-            where={"clerkUserId": user_id}
+            where={"clerkId": user_id}
         )
 
         if not user or not user.stripeCustomerId:
@@ -108,7 +108,7 @@ async def get_subscription_status(
         await prisma.connect()
 
         user = await prisma.user.find_unique(
-            where={"clerkUserId": user_id}
+            where={"clerkId": user_id}
         )
 
         if not user:

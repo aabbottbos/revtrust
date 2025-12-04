@@ -22,6 +22,8 @@ import {
   Users,
   Calendar
 } from "lucide-react"
+import { LinkedInShareButton } from "@/components/LinkedInShareButton"
+import { analytics } from "@/lib/analytics"
 
 interface DealAIResult {
   deal_id: string
@@ -96,6 +98,13 @@ export default function AIResultsPage() {
 
       const data = await response.json()
       setAiAnalysis(data)
+
+      // Track AI review completion
+      analytics.aiReviewCompleted(
+        analysisId,
+        data.metrics?.average_risk_score || 0,
+        data.metrics?.total_deals_analyzed || 0
+      )
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load AI results")
     } finally {
@@ -200,12 +209,19 @@ export default function AIResultsPage() {
                 </p>
               </div>
             </div>
-            <Button
-              variant="outline"
-              onClick={() => router.push(`/results/${analysisId}`)}
-            >
-              View Business Rules
-            </Button>
+            <div className="flex items-center gap-3">
+              <LinkedInShareButton
+                dealCount={metrics.total_deals_analyzed}
+                riskScore={metrics.average_risk_score}
+                highRiskCount={metrics.high_risk_count}
+              />
+              <Button
+                variant="outline"
+                onClick={() => router.push(`/results/${analysisId}`)}
+              >
+                View Business Rules
+              </Button>
+            </div>
           </div>
         </div>
 

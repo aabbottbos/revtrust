@@ -83,7 +83,7 @@ async def handle_subscription_created(subscription):
 
     try:
         await prisma.user.update(
-            where={"clerkUserId": user_id},
+            where={"clerkId": user_id},
             data={
                 "subscriptionTier": "pro",
                 "subscriptionStatus": "active",

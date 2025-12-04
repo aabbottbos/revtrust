@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Check, Loader2 } from "lucide-react"
 import Link from "next/link"
+import { analytics } from "@/lib/analytics"
 
 export default function PricingPage() {
   const router = useRouter()
@@ -24,6 +25,9 @@ export default function PricingPage() {
     try {
       setLoading(true)
       setError(null)
+
+      // Track upgrade click
+      analytics.upgradeClicked("pricing_page", "pro")
 
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/stripe/create-checkout-session`,
