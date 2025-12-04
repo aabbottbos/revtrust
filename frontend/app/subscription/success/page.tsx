@@ -1,13 +1,13 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { Suspense, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@clerk/nextjs"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { CheckCircle, Sparkles, Gift, Copy, Check } from "lucide-react"
 
-export default function SubscriptionSuccessPage() {
+function SubscriptionSuccessContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { userId } = useAuth()
@@ -106,5 +106,20 @@ export default function SubscriptionSuccessPage() {
         </div>
       </Card>
     </div>
+  )
+}
+
+export default function SubscriptionSuccessPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-revtrust-blue mx-auto"></div>
+          <p className="mt-4 text-slate-600">Loading...</p>
+        </div>
+      </div>
+    }>
+      <SubscriptionSuccessContent />
+    </Suspense>
   )
 }
