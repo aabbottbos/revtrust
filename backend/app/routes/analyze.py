@@ -85,6 +85,17 @@ async def process_analysis_background(
         mapping_summary = mapper.get_mapping_summary(mapping_result)
         mapped_data = mapper.apply_mapping(cleaned_data, mapping_result)
 
+        # Debug: Check what was mapped
+        print(f"📊 Mapped Data Debug:")
+        print(f"  - Input rows: {len(cleaned_data)}")
+        print(f"  - Mapped rows: {len(mapped_data)}")
+        print(f"  - Mapping summary: {mapping_summary}")
+        if mapped_data and len(mapped_data) > 0:
+            print(f"  - First mapped row: {mapped_data[0]}")
+            print(f"  - First mapped row keys: {list(mapped_data[0].keys())}")
+        else:
+            print(f"  - WARNING: mapped_data is empty or contains empty dicts!")
+
         # Step 4: Run business rules
         analysis_status_store[analysis_id] = {
             "status": "processing",
@@ -130,6 +141,7 @@ async def process_analysis_background(
                 "total_warnings": analysis_results['total_warnings'],
                 "total_info": analysis_results['total_info'],
             },
+            "deals": mapped_data,  # Store the deals data for AI analysis
             "violations": analysis_results['violations'],
             "violations_by_category": analysis_results['violations_by_category'],
             "violations_by_severity": analysis_results['violations_by_severity'],

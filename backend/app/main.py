@@ -5,7 +5,8 @@ import os
 import time
 from dotenv import load_dotenv
 
-from app.routes import analyze, health, ai_analysis, stripe_routes, webhooks, feedback, analytics, admin
+from app.routes import analyze, health, ai_analysis, stripe_routes, webhooks, feedback, analytics, admin, crm_oauth, scheduled_reviews, output_templates
+from app.services.scheduler_service import get_scheduler_service
 
 load_dotenv()
 
@@ -15,9 +16,23 @@ async def lifespan(app: FastAPI):
     print("🚀 Starting RevTrust API...")
     allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000")
     print(f"📍 ALLOWED_ORIGINS: {allowed_origins_str}")
+
+    # Start scheduler
+    print("⏰ Starting scheduler...")
+    scheduler = get_scheduler_service()
+    scheduler.start()
+
+    # Sync all scheduled reviews from database
+    await scheduler.sync_all_schedules()
+
+    print("✅ Backend ready!")
+
     yield
+
     # Shutdown
-    print("👋 Shutting down RevTrust API...")
+    print("⏸️ Shutting down...")
+    scheduler.stop()
+    print("👋 RevTrust API stopped")
 
 app = FastAPI(
     title="RevTrust API",
@@ -68,6 +83,9 @@ app.include_router(webhooks.router, tags=["Webhooks"])
 app.include_router(feedback.router, tags=["Feedback"])
 app.include_router(analytics.router, tags=["Analytics"])
 app.include_router(admin.router, tags=["Admin"])
+app.include_router(crm_oauth.router, tags=["CRM OAuth"])
+app.include_router(scheduled_reviews.router, tags=["Scheduled Reviews"])
+app.include_router(output_templates.router, tags=["Output Templates"])
 
 if __name__ == "__main__":
     import uvicorn

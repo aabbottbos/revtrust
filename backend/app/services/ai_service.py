@@ -6,10 +6,30 @@ Switch providers by changing environment variables
 
 import os
 import json
+import re
 from typing import List, Dict, Optional, Any
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 import anthropic
+
+
+def safe_amount_to_float(amount: Any) -> float:
+    """
+    Safely convert amount to float, handling strings with currency symbols and commas
+    Examples: "£144,000" -> 144000.0, "$50,000" -> 50000.0, 150 -> 150.0
+    """
+    if isinstance(amount, (int, float)):
+        return float(amount)
+
+    if isinstance(amount, str):
+        # Remove currency symbols, commas, and spaces
+        cleaned = re.sub(r'[£$€¥,\s]', '', amount)
+        try:
+            return float(cleaned)
+        except ValueError:
+            return 0.0
+
+    return 0.0
 
 
 @dataclass
@@ -104,12 +124,14 @@ class ClaudeProvider(AIProvider):
         if not violations_text:
             violations_text = "No issues identified - deal appears clean"
 
+        deal_amount = safe_amount_to_float(deal_data.get('amount', 0))
+
         prompt = f"""You are an elite B2B sales coach with 20 years of experience analyzing enterprise deals. You have a deep understanding of deal psychology, buyer behavior, and pipeline dynamics.
 
 DEAL SNAPSHOT:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Deal:        {deal_data.get('name', 'Unknown')}
-Value:       ${deal_data.get('amount', 0):,.2f}
+Value:       ${deal_amount:,.2f}
 Stage:       {deal_data.get('stage', 'Unknown')}
 Close Date:  {close_date}
 Owner:       {deal_data.get('owner', 'Not set')}
@@ -284,16 +306,125 @@ BEGIN ANALYSIS:"""
         deals: List[Dict[str, Any]],
         violations_by_deal: Dict[str, List[Dict[str, Any]]]
     ) -> List[AIAnalysisResult]:
-        """Analyze all deals in pipeline"""
+        """Analyze all deals in pipeline with a single API call"""
 
-        results = []
+        # Create batch analysis prompt with all deals
+        deals_data = []
         for deal in deals:
             deal_id = deal.get("id", "unknown")
             violations = violations_by_deal.get(deal_id, [])
-            result = await self.analyze_deal(deal, violations)
-            results.append(result)
 
-        return results
+            # Group violations by severity
+            critical_violations = [v for v in violations if v.get('severity') == 'critical']
+            warning_violations = [v for v in violations if v.get('severity') == 'warning']
+
+            violations_text = ""
+            if critical_violations:
+                violations_text += "CRITICAL ISSUES:\n" + "\n".join([
+                    f"- {v.get('rule_name', 'Unknown')}: {v.get('message', '')}"
+                    for v in critical_violations
+                ])
+            if warning_violations:
+                if violations_text:
+                    violations_text += "\n\n"
+                violations_text += "WARNINGS:\n" + "\n".join([
+                    f"- {v.get('rule_name', 'Unknown')}: {v.get('message', '')}"
+                    for v in warning_violations
+                ])
+
+            if not violations_text:
+                violations_text = "No issues identified - deal appears clean"
+
+            deal_amount = safe_amount_to_float(deal.get('amount', 0))
+
+            deals_data.append({
+                "deal_id": deal_id,
+                "deal_name": deal.get('name', 'Unknown'),
+                "amount": deal_amount,
+                "stage": deal.get('stage', 'Unknown'),
+                "close_date": deal.get('close_date', 'Not set'),
+                "owner": deal.get('owner', 'Not set'),
+                "violations": violations_text
+            })
+
+        # Create batch prompt
+        batch_prompt = f"""You are an elite B2B sales coach analyzing {len(deals)} deals in a pipeline. Analyze each deal and return a JSON array with risk assessments.
+
+DEALS TO ANALYZE:
+{json.dumps(deals_data, indent=2)}
+
+For EACH deal, provide analysis in this EXACT JSON format:
+{{
+  "deal_id": "<deal_id from input>",
+  "deal_name": "<deal_name from input>",
+  "risk_score": <number 0-100, where 100 is highest risk>,
+  "risk_level": "<low|medium|high>",
+  "risk_factors": ["factor 1", "factor 2", "factor 3"],
+  "next_best_action": "<specific action the AE should take>",
+  "action_priority": "<critical|high|medium|low>",
+  "action_rationale": "<why this action matters>",
+  "executive_summary": "<2-sentence summary>",
+  "confidence": <0.0-1.0>
+}}
+
+CRITICAL RULES:
+- Return a JSON ARRAY with one object per deal
+- Output ONLY valid JSON, no markdown, no code blocks
+- Analyze all {len(deals)} deals
+- Be specific and actionable
+- Focus on what the AE can control
+
+BEGIN ANALYSIS:"""
+
+        try:
+            response = self.client.messages.create(
+                model=self.model,
+                max_tokens=8000,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": batch_prompt
+                    }
+                ]
+            )
+
+            response_text = response.content[0].text.strip()
+
+            # Clean response
+            if response_text.startswith("```json"):
+                response_text = response_text[7:]
+            if response_text.startswith("```"):
+                response_text = response_text[3:]
+            if response_text.endswith("```"):
+                response_text = response_text[:-3]
+            response_text = response_text.strip()
+
+            # Parse JSON array
+            analyses = json.loads(response_text)
+
+            # Convert to AIAnalysisResult objects
+            results = []
+            for analysis in analyses:
+                results.append(AIAnalysisResult(
+                    deal_id=analysis.get("deal_id", "unknown"),
+                    deal_name=analysis.get("deal_name", "Unknown"),
+                    risk_score=float(analysis.get("risk_score", 50)),
+                    risk_level=analysis.get("risk_level", "medium"),
+                    risk_factors=analysis.get("risk_factors", []),
+                    next_best_action=analysis.get("next_best_action", "Review deal details"),
+                    action_priority=analysis.get("action_priority", "medium"),
+                    action_rationale=analysis.get("action_rationale", ""),
+                    executive_summary=analysis.get("executive_summary", ""),
+                    confidence=float(analysis.get("confidence", 0.5))
+                ))
+
+            return results
+
+        except Exception as e:
+            print(f"Batch analysis error: {e}")
+            import traceback
+            traceback.print_exc()
+            raise
 
     async def generate_pipeline_summary(
         self,
@@ -304,10 +435,10 @@ BEGIN ANALYSIS:"""
 
         # Calculate pipeline metrics
         total_deals = len(deals)
-        total_value = sum(d.get('amount', 0) for d in deals)
+        total_value = sum(safe_amount_to_float(d.get('amount', 0)) for d in deals)
         high_risk_deals = [r for r in ai_results if r.risk_level == 'high']
         high_risk_value = sum(
-            next((d.get('amount', 0) for d in deals if d.get('id') == r.deal_id), 0)
+            safe_amount_to_float(next((d.get('amount', 0) for d in deals if d.get('id') == r.deal_id), 0))
             for r in high_risk_deals
         )
 
@@ -316,7 +447,7 @@ BEGIN ANALYSIS:"""
 
         # Create summary prompt
         top_risks_text = "\n".join([
-            f"{i+1}. {r.deal_name} (${next((d.get('amount', 0) for d in deals if d.get('id') == r.deal_id), 0):,.0f}) - Risk: {r.risk_score}/100\n   Reason: {r.risk_factors[0] if r.risk_factors else 'Unknown'}"
+            f"{i+1}. {r.deal_name} (${safe_amount_to_float(next((d.get('amount', 0) for d in deals if d.get('id') == r.deal_id), 0)):,.0f}) - Risk: {r.risk_score}/100\n   Reason: {r.risk_factors[0] if r.risk_factors else 'Unknown'}"
             for i, r in enumerate(top_risks)
         ])
 

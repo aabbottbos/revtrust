@@ -269,11 +269,16 @@ Important:
         Returns:
             List of dicts with standard field names as keys
         """
+        import uuid
+
         mapped_data = []
         field_mappings = mapping['mappings']
 
         for row in data:
             mapped_row = {}
+
+            # Add unique ID for each deal
+            mapped_row['id'] = str(uuid.uuid4())
 
             for csv_col, value in row.items():
                 if csv_col in field_mappings:

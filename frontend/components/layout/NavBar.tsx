@@ -4,7 +4,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { UserButton, useUser } from "@clerk/nextjs"
 import { Button } from "@/components/ui/button"
-import { Upload, History, Home } from "lucide-react"
+import { Upload, History, Calendar } from "lucide-react"
 
 export function NavBar() {
   const { user } = useUser()
@@ -33,6 +33,13 @@ export function NavBar() {
             >
               <Upload className="h-4 w-4" />
               <span>Upload</span>
+            </Link>
+            <Link
+              href="/schedule"
+              className="flex items-center space-x-2 text-slate-600 hover:text-slate-900 transition-colors"
+            >
+              <Calendar className="h-4 w-4" />
+              <span>Scheduled Reviews</span>
             </Link>
             <Link
               href="/history"

@@ -1,0 +1,178 @@
+"""
+Service to execute scheduled pipeline reviews
+"""
+
+from typing import Dict, List
+from datetime import datetime
+from prisma import Prisma
+from app.services.salesforce_service import get_salesforce_service
+from app.services.hubspot_service import get_hubspot_service
+from app.utils.business_rules_engine import BusinessRulesEngine
+import traceback
+
+
+class ReviewJobService:
+    """Execute scheduled pipeline review jobs"""
+
+    def __init__(self):
+        self.rules_engine = BusinessRulesEngine()
+
+    async def execute_review(
+        self,
+        scheduled_review_id: str,
+        run_id: str
+    ) -> Dict:
+        """Execute a scheduled pipeline review"""
+
+        prisma = Prisma()
+        await prisma.connect()
+
+        try:
+            # Update run status
+            await prisma.reviewrun.update(
+                where={"id": run_id},
+                data={"status": "running"}
+            )
+
+            # Get scheduled review config
+            scheduled_review = await prisma.scheduledreview.find_unique(
+                where={"id": scheduled_review_id},
+                include={
+                    "crmConnection": True,
+                    "user": True
+                }
+            )
+
+            if not scheduled_review:
+                raise Exception("Scheduled review not found")
+
+            connection = scheduled_review.crmConnection
+            user = scheduled_review.user
+
+            print(f"📊 Starting review: {scheduled_review.name}")
+            print(f"   User: {user.email}")
+            print(f"   CRM: {connection.provider}")
+
+            # Step 1: Fetch deals from CRM
+            print("🔄 Fetching deals from CRM...")
+            deals = await self._fetch_deals_from_crm(connection)
+
+            if not deals or len(deals) == 0:
+                raise Exception("No deals found in CRM")
+
+            print(f"✓ Fetched {len(deals)} deals")
+
+            # Step 2: Run business rules analysis
+            print("🔍 Running business rules analysis...")
+            analysis_result = self.rules_engine.analyze_deals(deals)
+
+            health_score = int(analysis_result["health_score"])
+            violations = analysis_result["violations"]
+
+            print(f"✓ Analysis complete - Health Score: {health_score}/100")
+            print(f"✓ Found {len(violations)} issues")
+
+            # Step 3: Store results
+            print("💾 Storing results...")
+
+            # Count high risk deals
+            high_risk_count = sum(1 for v in violations if v.get("severity") == "CRITICAL")
+
+            # Update review run with results
+            await prisma.reviewrun.update(
+                where={"id": run_id},
+                data={
+                    "status": "completed",
+                    "completedAt": datetime.now(),
+                    "dealsAnalyzed": len(deals),
+                    "healthScore": health_score,
+                    "issuesFound": len(violations),
+                    "highRiskDeals": high_risk_count
+                }
+            )
+
+            # Update scheduled review last run time
+            await prisma.scheduledreview.update(
+                where={"id": scheduled_review_id},
+                data={"lastRunAt": datetime.now()}
+            )
+
+            print("✅ Review completed successfully!")
+
+            # Step 4: Deliver results (if delivery channels configured)
+            if scheduled_review.deliveryChannels:
+                print("📧 Delivering results...")
+                try:
+                    from app.services.delivery_service import get_delivery_service
+
+                    delivery_service = get_delivery_service()
+
+                    # For now, pass a simplified analysis_id (could create Analysis record if needed)
+                    await delivery_service.deliver_review_results(
+                        scheduled_review_id=scheduled_review_id,
+                        analysis_id=run_id,  # Using run_id as placeholder
+                        review_data={
+                            "health_score": health_score,
+                            "deals_analyzed": len(deals),
+                            "ai_results": {
+                                "pipeline_summary": {
+                                    "key_insight": f"Pipeline health score: {health_score}/100 with {len(violations)} issues found across {len(deals)} deals.",
+                                    "top_3_risks": []  # Could extract from violations
+                                },
+                                "results": []
+                            }
+                        }
+                    )
+
+                    print("✅ Results delivered successfully!")
+
+                except Exception as e:
+                    print(f"⚠️ Delivery failed: {e}")
+                    traceback.print_exc()
+                    # Continue - don't fail the job if delivery fails
+
+            return {
+                "status": "success",
+                "run_id": run_id,
+                "deals_analyzed": len(deals),
+                "health_score": health_score,
+                "issues_found": len(violations)
+            }
+
+        except Exception as e:
+            print(f"❌ Review failed: {e}")
+            traceback.print_exc()
+
+            # Update run status to failed
+            await prisma.reviewrun.update(
+                where={"id": run_id},
+                data={
+                    "status": "failed",
+                    "completedAt": datetime.now(),
+                    "errorMessage": str(e)
+                }
+            )
+
+            raise
+
+        finally:
+            await prisma.disconnect()
+
+    async def _fetch_deals_from_crm(self, connection) -> List[Dict]:
+        """Fetch deals from the connected CRM"""
+
+        if connection.provider == "salesforce":
+            sf_service = get_salesforce_service()
+            return await sf_service.fetch_opportunities(connection.id)
+
+        elif connection.provider == "hubspot":
+            hs_service = get_hubspot_service()
+            return await hs_service.fetch_deals(connection.id)
+
+        else:
+            raise Exception(f"Unknown CRM provider: {connection.provider}")
+
+
+def get_review_job_service() -> ReviewJobService:
+    """Get review job service instance"""
+    return ReviewJobService()

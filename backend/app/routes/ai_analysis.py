@@ -5,7 +5,7 @@ Endpoints for AI-powered deal insights
 
 from fastapi import APIRouter, HTTPException, Depends
 from typing import Dict, Any, List
-from app.services.ai_service import get_ai_service, AIAnalysisResult
+from app.services.ai_service import get_ai_service, AIAnalysisResult, safe_amount_to_float
 from app.services.subscription_service import get_subscription_service
 from app.auth import get_current_user_id
 
@@ -58,9 +58,21 @@ async def run_ai_analysis(
             "ai_analysis_id": analysis_id
         }
 
-    # Get deals and violations
-    deals = analysis.get("deals", [])
-    violations = analysis.get("violations", [])
+    # Get deals and violations from the result
+    result = analysis.get("result", {})
+    deals = result.get("deals", [])
+    violations = result.get("violations", [])
+
+    print(f"🔍 AI Analysis Debug:")
+    print(f"  - Analysis ID: {analysis_id}")
+    print(f"  - Analysis keys: {list(analysis.keys())}")
+    print(f"  - Result keys: {list(result.keys()) if result else 'No result'}")
+    print(f"  - Number of deals: {len(deals)}")
+    print(f"  - Number of violations: {len(violations)}")
+    if deals:
+        print(f"  - First deal keys: {list(deals[0].keys())}")
+        print(f"  - First deal sample: {dict(list(deals[0].items())[:3])}")
+        print(f"  - First deal name field: {deals[0].get('name', 'N/A')}")
 
     # Group violations by deal
     violations_by_deal: Dict[str, List[Dict]] = {}
@@ -75,7 +87,9 @@ async def run_ai_analysis(
         ai_service = get_ai_service()
 
         # Analyze all deals
+        print(f"  - Calling AI service with {len(deals)} deals...")
         results = await ai_service.analyze_pipeline(deals, violations_by_deal)
+        print(f"  - AI service returned {len(results)} results")
 
         # Generate pipeline summary
         pipeline_summary = await ai_service.generate_pipeline_summary(deals, results)
@@ -102,7 +116,7 @@ async def run_ai_analysis(
                 {
                     "deal_id": r.deal_id,
                     "deal_name": r.deal_name,
-                    "deal_amount": next((d.get('amount', 0) for d in deals if d.get('id') == r.deal_id), 0),
+                    "deal_amount": safe_amount_to_float(next((d.get('amount', 0) for d in deals if d.get('id') == r.deal_id), 0)),
                     "risk_score": r.risk_score,
                     "risk_level": r.risk_level,
                     "risk_factors": r.risk_factors,

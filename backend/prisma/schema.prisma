@@ -28,7 +28,10 @@ model User {
   stripeCustomerId      String?
   stripeSubscriptionId  String?
 
-  analyses      Analysis[]
+  analyses         Analysis[]
+  crmConnections   CRMConnection[]
+  scheduledReviews ScheduledReview[]
+  outputTemplates  OutputTemplate[]
 
   @@map("users")
 }
@@ -221,4 +224,141 @@ model FieldMapping {
   updatedAt       DateTime  @updatedAt
 
   @@map("field_mappings")
+}
+
+// CRM Connection (Salesforce/HubSpot OAuth)
+model CRMConnection {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  provider        String   // "salesforce" | "hubspot"
+
+  // Encrypted OAuth tokens
+  accessToken     String   @db.Text
+  refreshToken    String   @db.Text
+  instanceUrl     String?  // Salesforce instance URL
+  portalId        String?  // HubSpot portal ID
+
+  expiresAt       DateTime
+
+  // Connection metadata
+  accountName     String?  // Friendly name for this connection
+  isActive        Boolean  @default(true)
+  lastSyncAt      DateTime?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  scheduledReviews ScheduledReview[]
+
+  @@unique([userId, provider])
+  @@index([userId, isActive])
+  @@map("crm_connections")
+}
+
+// Scheduled Review Configuration
+model ScheduledReview {
+  id                String   @id @default(uuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name              String   // "Weekly Pipeline Review"
+  description       String?  // Optional description
+
+  crmConnectionId   String
+  crmConnection     CRMConnection @relation(fields: [crmConnectionId], references: [id], onDelete: Cascade)
+
+  // Schedule configuration (cron format)
+  // "0 6 * * 1" = Monday at 6am
+  // "0 6 * * *" = Every day at 6am
+  // "0 6 * * 1,3,5" = Mon, Wed, Fri at 6am
+  schedule          String
+  timezone          String   @default("America/New_York")
+
+  // Delivery settings (for Session 22)
+  deliveryChannels  Json     @default("[]")  // ["email", "slack"]
+  emailRecipients   String[] // Email addresses
+  slackWebhookUrl   String?  // Slack webhook
+
+  // Template (for Session 22)
+  templateId        String?  // Custom template
+  outputTemplate    OutputTemplate? @relation(fields: [templateId], references: [id])
+
+  isActive          Boolean  @default(true)
+
+  lastRunAt         DateTime?
+  nextRunAt         DateTime?
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  runs              ReviewRun[]
+
+  @@index([userId, isActive])
+  @@index([nextRunAt, isActive])
+  @@map("scheduled_reviews")
+}
+
+// Review Run History
+model ReviewRun {
+  id                String   @id @default(uuid())
+  scheduledReviewId String
+  scheduledReview   ScheduledReview @relation(fields: [scheduledReviewId], references: [id], onDelete: Cascade)
+
+  status            String   @default("queued")  // "queued" | "running" | "completed" | "failed"
+
+  startedAt         DateTime @default(now())
+  completedAt       DateTime?
+
+  // Results
+  dealsAnalyzed     Int?
+  healthScore       Int?
+  issuesFound       Int?
+  highRiskDeals     Int?
+
+  // Error tracking
+  errorMessage      String?  @db.Text
+  retryCount        Int      @default(0)
+
+  // Link to analysis (for web view)
+  analysisId        String?
+
+  // Job metadata
+  jobId             String?  // RQ job ID
+
+  createdAt         DateTime @default(now())
+
+  @@index([scheduledReviewId, status])
+  @@index([status, startedAt])
+  @@map("review_runs")
+}
+
+// Output Template for Email/Slack
+model OutputTemplate {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name            String   // "Executive Summary Style"
+  description     String?  // "Focused on top risks"
+
+  // Template content
+  emailSubject    String   // "Pipeline Review: {{health_score}}/100"
+  emailTemplate   String   @db.Text  // Jinja2 template
+  slackTemplate   String   @db.Text  // Jinja2 template
+
+  // Wrapper text
+  introText       String?  @db.Text  // Before results
+  outroText       String?  @db.Text  // After results
+
+  isDefault       Boolean  @default(false)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  scheduledReviews ScheduledReview[]
+
+  @@index([userId])
+  @@map("output_templates")
 }
