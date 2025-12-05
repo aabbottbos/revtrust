@@ -9,7 +9,7 @@ import os
 import hashlib
 import base64
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from app.services.encryption_service import get_encryption_service
 from prisma import Prisma
 
@@ -137,7 +137,7 @@ class SalesforceService:
                 raise Exception("Connection not found")
 
             # Check if token is expired or expiring soon
-            if connection.expiresAt < datetime.now() + timedelta(minutes=5):
+            if connection.expiresAt < datetime.now(timezone.utc) + timedelta(minutes=5):
                 # Refresh token
                 refresh_token = self.encryption.decrypt(connection.refreshToken)
                 token_data = await self.refresh_access_token(refresh_token)
