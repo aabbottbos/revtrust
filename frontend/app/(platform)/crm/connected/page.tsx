@@ -10,16 +10,32 @@ function ConnectedContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [provider, setProvider] = useState<string>("")
+  const [returnPath, setReturnPath] = useState<string>("/crm")
 
   useEffect(() => {
     const providerName = searchParams.get("provider")
     setProvider(providerName || "CRM")
+
+    // Check for stored return path
+    const storedReturnTo = sessionStorage.getItem("oauth_return_to")
+    if (storedReturnTo) {
+      setReturnPath(storedReturnTo)
+      // Clean up
+      sessionStorage.removeItem("oauth_return_to")
+    }
   }, [searchParams])
 
   const getProviderName = () => {
     if (provider === "salesforce") return "Salesforce"
     if (provider === "hubspot") return "HubSpot"
     return "CRM"
+  }
+
+  const getButtonText = () => {
+    if (returnPath === "/schedule/new") {
+      return "Continue Creating Schedule"
+    }
+    return "Back to CRM Connections"
   }
 
   return (
@@ -32,8 +48,8 @@ function ConnectedContent() {
         <p className="text-slate-600 mb-6">
           Your {getProviderName()} account has been connected successfully.
         </p>
-        <Button onClick={() => router.push("/crm")}>
-          Back to CRM Connections
+        <Button onClick={() => router.push(returnPath)}>
+          {getButtonText()}
         </Button>
       </Card>
     </div>

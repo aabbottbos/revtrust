@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -16,9 +17,11 @@ interface Connection {
 }
 
 export default function CRMConnectionsPage() {
+  const searchParams = useSearchParams()
   const [connections, setConnections] = useState<Connection[]>([])
   const [loading, setLoading] = useState(true)
   const [connecting, setConnecting] = useState<string | null>(null)
+  const returnTo = searchParams.get("returnTo")
 
   useEffect(() => {
     fetchConnections()
@@ -39,6 +42,10 @@ export default function CRMConnectionsPage() {
   const connectSalesforce = async () => {
     setConnecting("salesforce")
     try {
+      // Store returnTo in sessionStorage to preserve through OAuth redirect
+      if (returnTo) {
+        sessionStorage.setItem("oauth_return_to", returnTo)
+      }
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/oauth/salesforce/authorize`)
       const data = await res.json()
       window.location.href = data.authorization_url
@@ -51,6 +58,10 @@ export default function CRMConnectionsPage() {
   const connectHubSpot = async () => {
     setConnecting("hubspot")
     try {
+      // Store returnTo in sessionStorage to preserve through OAuth redirect
+      if (returnTo) {
+        sessionStorage.setItem("oauth_return_to", returnTo)
+      }
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/oauth/hubspot/authorize`)
       const data = await res.json()
       window.location.href = data.authorization_url

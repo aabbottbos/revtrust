@@ -46,7 +46,13 @@ export default function NewSchedulePage() {
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/oauth/connections`)
       const data = await res.json()
-      setConnections(data.connections.filter((c: CRMConnection) => c.is_active))
+      const activeConnections = data.connections.filter((c: CRMConnection) => c.is_active)
+      setConnections(activeConnections)
+
+      // Auto-select if only one connection or if connection was just added
+      if (activeConnections.length === 1 && !connectionId) {
+        setConnectionId(activeConnections[0].id)
+      }
     } catch (err) {
       console.error("Error:", err)
     } finally {
@@ -190,7 +196,7 @@ export default function NewSchedulePage() {
               <p className="text-slate-600 mb-4">
                 No CRM connections found. Please connect a CRM first.
               </p>
-              <Button onClick={() => router.push("/crm")}>
+              <Button onClick={() => router.push("/crm?returnTo=/schedule/new")}>
                 Connect CRM
               </Button>
             </div>
