@@ -10,21 +10,35 @@ export function useAuthenticatedFetch() {
 
   const authenticatedFetch = useCallback(
     async (url: string, options: RequestInit = {}): Promise<Response> => {
-      // Get the Clerk session token
-      const token = await getToken();
+      try {
+        console.log("🔐 Fetching:", url);
 
-      // Add authorization header
-      const headers = new Headers(options.headers);
+        // Get the Clerk session token
+        const token = await getToken();
+        console.log("🎫 Token received:", token ? "✅ Yes" : "❌ No");
 
-      if (token) {
-        headers.set("Authorization", `Bearer ${token}`);
+        // Add authorization header
+        const headers = new Headers(options.headers);
+
+        if (token) {
+          headers.set("Authorization", `Bearer ${token}`);
+        }
+
+        // Make the request with the token
+        console.log("📡 Making request to:", url);
+        const response = await fetch(url, {
+          ...options,
+          headers,
+        });
+
+        console.log("📥 Response status:", response.status, response.statusText);
+        return response;
+      } catch (error) {
+        console.error("❌ Fetch error:", error);
+        console.error("URL:", url);
+        console.error("Error type:", error instanceof TypeError ? "TypeError" : typeof error);
+        throw error;
       }
-
-      // Make the request with the token
-      return fetch(url, {
-        ...options,
-        headers,
-      });
     },
     [getToken]
   );

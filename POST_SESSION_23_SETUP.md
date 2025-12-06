@@ -81,6 +81,8 @@ redis-cli ping  # Should return "PONG"
 3. Copy the connection URL
 4. Add to `REDIS_URL` in backend .env
 
+## > redis://default:njmBaNLK0jChHlzMCH5LmoB3zJZsKrmR@redis-18614.c62.us-east-1-4.ec2.cloud.redislabs.com:18614/database-MISBXNO9
+
 ### B. Resend Setup (Required for Email Delivery)
 
 **Steps:**
@@ -165,6 +167,13 @@ redis-cli ping  # Should return "PONG"
 7. Select the channel to post to
 8. Copy the Webhook URL
 9. When creating a scheduled review in the UI, paste this webhook URL
+
+**Example test command:**
+```bash
+curl -X POST -H 'Content-type: application/json' \
+  --data '{"text":"Hello, World!"}' \
+  YOUR_SLACK_WEBHOOK_URL_HERE
+```
 
 **Note:** Each user will need their own Slack webhook URL (per workspace/channel)
 

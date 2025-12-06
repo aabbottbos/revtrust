@@ -74,21 +74,25 @@ async def salesforce_callback(
         await prisma.connect()
 
         try:
-            # Ensure user exists (for POC with anonymous user)
-            if user_id == "anonymous_user":
-                await prisma.user.upsert(
-                    where={"clerkId": "anonymous_user"},
+            # Get or create user and get database ID
+            # user_id at this point is the Clerk ID, we need the database ID
+            clerk_id = user_id
+
+            user = await prisma.user.find_unique(where={"clerkId": clerk_id})
+
+            if not user:
+                # User doesn't exist yet - create them
+                # For anonymous user, use a placeholder email
+                email = "anonymous@revtrust.dev" if clerk_id == "anonymous_user" else f"{clerk_id}@clerk.user"
+                user = await prisma.user.create(
                     data={
-                        "create": {
-                            "clerkId": "anonymous_user",
-                            "email": "anonymous@revtrust.dev"
-                        },
-                        "update": {}
+                        "clerkId": clerk_id,
+                        "email": email
                     }
                 )
-                # Get the actual user ID
-                user = await prisma.user.find_unique(where={"clerkId": "anonymous_user"})
-                user_id = user.id
+
+            # Now use the database ID
+            user_id = user.id
 
             # Check if connection already exists
             existing = await prisma.crmconnection.find_first(
@@ -193,21 +197,25 @@ async def hubspot_callback(
         await prisma.connect()
 
         try:
-            # Ensure user exists (for POC with anonymous user)
-            if user_id == "anonymous_user":
-                await prisma.user.upsert(
-                    where={"clerkId": "anonymous_user"},
+            # Get or create user and get database ID
+            # user_id at this point is the Clerk ID, we need the database ID
+            clerk_id = user_id
+
+            user = await prisma.user.find_unique(where={"clerkId": clerk_id})
+
+            if not user:
+                # User doesn't exist yet - create them
+                # For anonymous user, use a placeholder email
+                email = "anonymous@revtrust.dev" if clerk_id == "anonymous_user" else f"{clerk_id}@clerk.user"
+                user = await prisma.user.create(
                     data={
-                        "create": {
-                            "clerkId": "anonymous_user",
-                            "email": "anonymous@revtrust.dev"
-                        },
-                        "update": {}
+                        "clerkId": clerk_id,
+                        "email": email
                     }
                 )
-                # Get the actual user ID
-                user = await prisma.user.find_unique(where={"clerkId": "anonymous_user"})
-                user_id = user.id
+
+            # Now use the database ID
+            user_id = user.id
 
             # Check if connection already exists
             existing = await prisma.crmconnection.find_first(

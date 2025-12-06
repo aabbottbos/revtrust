@@ -7,19 +7,24 @@ from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
 from prisma import Prisma
-from app.auth import get_current_user_id
+from app.auth import get_current_user_id, get_current_user_email
 from app.services.scheduler_service import get_scheduler_service
 
 router = APIRouter(prefix="/api/scheduled-reviews", tags=["Scheduled Reviews"])
 
 
-async def get_or_create_user(prisma: Prisma, clerk_id: str):
+async def get_or_create_user(prisma: Prisma, clerk_id: str, email: Optional[str] = None):
     """Get user by Clerk ID or create if doesn't exist"""
     user = await prisma.user.find_unique(where={"clerkId": clerk_id})
 
     if not user:
         # Auto-create user on first access
-        user = await prisma.user.create(data={"clerkId": clerk_id})
+        # Use provided email or generate a placeholder
+        user_email = email or f"{clerk_id}@clerk.user"
+        user = await prisma.user.create(data={
+            "clerkId": clerk_id,
+            "email": user_email
+        })
 
     return user
 
@@ -49,7 +54,8 @@ class UpdateScheduledReviewRequest(BaseModel):
 @router.post("")
 async def create_scheduled_review(
     request: CreateScheduledReviewRequest,
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(get_current_user_id),
+    email: Optional[str] = Depends(get_current_user_email)
 ):
     """Create a new scheduled review"""
 
@@ -58,7 +64,7 @@ async def create_scheduled_review(
 
     try:
         # Get or create user
-        user = await get_or_create_user(prisma, user_id)
+        user = await get_or_create_user(prisma, user_id, email)
 
         # Verify CRM connection belongs to user
         connection = await prisma.crmconnection.find_first(
@@ -116,7 +122,8 @@ async def create_scheduled_review(
 
 @router.get("")
 async def list_scheduled_reviews(
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(get_current_user_id),
+    email: Optional[str] = Depends(get_current_user_email)
 ):
     """List user's scheduled reviews"""
 
@@ -125,7 +132,7 @@ async def list_scheduled_reviews(
 
     try:
         # Get or create user
-        user = await get_or_create_user(prisma, user_id)
+        user = await get_or_create_user(prisma, user_id, email)
 
         reviews = await prisma.scheduledreview.find_many(
             where={"userId": user.id},
@@ -159,7 +166,8 @@ async def list_scheduled_reviews(
 @router.get("/{review_id}")
 async def get_scheduled_review(
     review_id: str,
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(get_current_user_id),
+    email: Optional[str] = Depends(get_current_user_email)
 ):
     """Get a specific scheduled review"""
 
@@ -168,7 +176,7 @@ async def get_scheduled_review(
 
     try:
         # Get or create user
-        user = await get_or_create_user(prisma, user_id)
+        user = await get_or_create_user(prisma, user_id, email)
 
         review = await prisma.scheduledreview.find_first(
             where={
@@ -205,7 +213,8 @@ async def get_scheduled_review(
 async def update_scheduled_review(
     review_id: str,
     request: UpdateScheduledReviewRequest,
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(get_current_user_id),
+    email: Optional[str] = Depends(get_current_user_email)
 ):
     """Update a scheduled review"""
 
@@ -214,7 +223,7 @@ async def update_scheduled_review(
 
     try:
         # Get or create user
-        user = await get_or_create_user(prisma, user_id)
+        user = await get_or_create_user(prisma, user_id, email)
 
         # Verify ownership
         review = await prisma.scheduledreview.find_first(
@@ -284,7 +293,8 @@ async def update_scheduled_review(
 @router.delete("/{review_id}")
 async def delete_scheduled_review(
     review_id: str,
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(get_current_user_id),
+    email: Optional[str] = Depends(get_current_user_email)
 ):
     """Delete a scheduled review"""
 
@@ -293,7 +303,7 @@ async def delete_scheduled_review(
 
     try:
         # Get or create user
-        user = await get_or_create_user(prisma, user_id)
+        user = await get_or_create_user(prisma, user_id, email)
 
         # Verify ownership
         review = await prisma.scheduledreview.find_first(
@@ -324,7 +334,8 @@ async def delete_scheduled_review(
 @router.post("/{review_id}/run-now")
 async def run_review_now(
     review_id: str,
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(get_current_user_id),
+    email: Optional[str] = Depends(get_current_user_email)
 ):
     """Manually trigger a scheduled review to run immediately"""
 
@@ -333,7 +344,7 @@ async def run_review_now(
 
     try:
         # Get or create user
-        user = await get_or_create_user(prisma, user_id)
+        user = await get_or_create_user(prisma, user_id, email)
 
         # Verify ownership
         review = await prisma.scheduledreview.find_first(
@@ -391,6 +402,7 @@ async def run_review_now(
 async def get_review_runs(
     review_id: str,
     user_id: str = Depends(get_current_user_id),
+    email: Optional[str] = Depends(get_current_user_email),
     limit: int = 20
 ):
     """Get run history for a scheduled review"""
@@ -400,7 +412,7 @@ async def get_review_runs(
 
     try:
         # Get or create user
-        user = await get_or_create_user(prisma, user_id)
+        user = await get_or_create_user(prisma, user_id, email)
 
         # Verify ownership
         review = await prisma.scheduledreview.find_first(
