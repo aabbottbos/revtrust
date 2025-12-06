@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Loader2, Check, X, RefreshCw } from "lucide-react"
+import { useAuthenticatedFetch } from "@/hooks/useAuthenticatedFetch"
 
 interface Connection {
   id: string
@@ -18,6 +19,7 @@ interface Connection {
 
 export default function CRMConnectionsPage() {
   const searchParams = useSearchParams()
+  const authenticatedFetch = useAuthenticatedFetch()
   const [connections, setConnections] = useState<Connection[]>([])
   const [loading, setLoading] = useState(true)
   const [connecting, setConnecting] = useState<string | null>(null)
@@ -29,7 +31,7 @@ export default function CRMConnectionsPage() {
 
   const fetchConnections = async () => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/oauth/connections`)
+      const res = await authenticatedFetch(`${process.env.NEXT_PUBLIC_API_URL}/api/oauth/connections`)
       const data = await res.json()
       setConnections(data.connections)
     } catch (err) {
@@ -46,7 +48,7 @@ export default function CRMConnectionsPage() {
       if (returnTo) {
         sessionStorage.setItem("oauth_return_to", returnTo)
       }
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/oauth/salesforce/authorize`)
+      const res = await authenticatedFetch(`${process.env.NEXT_PUBLIC_API_URL}/api/oauth/salesforce/authorize`)
       const data = await res.json()
       window.location.href = data.authorization_url
     } catch (err) {
@@ -62,7 +64,7 @@ export default function CRMConnectionsPage() {
       if (returnTo) {
         sessionStorage.setItem("oauth_return_to", returnTo)
       }
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/oauth/hubspot/authorize`)
+      const res = await authenticatedFetch(`${process.env.NEXT_PUBLIC_API_URL}/api/oauth/hubspot/authorize`)
       const data = await res.json()
       window.location.href = data.authorization_url
     } catch (err) {
@@ -73,7 +75,7 @@ export default function CRMConnectionsPage() {
 
   const testConnection = async (connectionId: string) => {
     try {
-      const res = await fetch(
+      const res = await authenticatedFetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/oauth/connections/${connectionId}/test`,
         { method: "POST" }
       )
@@ -94,7 +96,7 @@ export default function CRMConnectionsPage() {
     if (!confirm("Are you sure you want to disconnect this CRM?")) return
 
     try {
-      await fetch(
+      await authenticatedFetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/oauth/connections/${connectionId}`,
         { method: "DELETE" }
       )

@@ -17,7 +17,10 @@ scheduled_reviews_queue = Queue('scheduled_reviews', connection=redis_conn)
 
 def run_worker():
     """Run RQ worker"""
-    worker = Worker([scheduled_reviews_queue, default_queue], connection=redis_conn)
+    # Use SimpleWorker to avoid fork() issues on macOS Python 3.14
+    # SimpleWorker executes jobs in the same process instead of forking
+    from rq import SimpleWorker
+    worker = SimpleWorker([scheduled_reviews_queue, default_queue], connection=redis_conn)
     worker.work()
 
 if __name__ == '__main__':

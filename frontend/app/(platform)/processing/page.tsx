@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Progress } from "@/components/ui/progress"
 import { CheckCircle2, Loader2 } from "lucide-react"
+import { useAuthenticatedFetch } from "@/hooks/useAuthenticatedFetch"
 
 interface ProcessingStep {
   id: string
@@ -15,6 +16,7 @@ function ProcessingContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const analysisId = searchParams.get("id")
+  const authenticatedFetch = useAuthenticatedFetch()
 
   const [progress, setProgress] = useState(0)
   const [currentStep, setCurrentStep] = useState("Starting analysis...")
@@ -39,7 +41,7 @@ function ProcessingContent() {
     const pollInterval = setInterval(async () => {
       try {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
-        const response = await fetch(
+        const response = await authenticatedFetch(
           `${apiUrl}/api/analysis/${analysisId}/status`
         )
 

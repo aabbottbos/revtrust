@@ -6,8 +6,10 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-switzer);
+  --font-heading: var(--font-inter);
+  --font-metric: var(--font-inter-tight);
+  --font-mono: ui-monospace, monospace;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -122,11 +124,29 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground font-sans antialiased;
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-switzer), system-ui, sans-serif;
   }
 
+  /* Inter for headings */
   h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-inter), system-ui, sans-serif;
     @apply font-bold;
+  }
+
+  /* Switzer for body text */
+  p, label, td, th, li, .text-body {
+    font-family: var(--font-switzer), system-ui, sans-serif;
+  }
+
+  /* Inter Tight for metrics, buttons, badges */
+  button, .btn, .badge, .tag, .pill, .metric, [data-metric] {
+    font-family: var(--font-inter-tight), system-ui, sans-serif;
+  }
+
+  /* Navigation uses Inter */
+  nav, nav a, nav button {
+    font-family: var(--font-inter), system-ui, sans-serif;
   }
 }
 
@@ -137,6 +157,19 @@
 
   .container-padding {
     @apply px-4 md:px-6 lg:px-8;
+  }
+
+  /* Font family utilities */
+  .font-heading {
+    font-family: var(--font-inter), system-ui, sans-serif;
+  }
+
+  .font-body {
+    font-family: var(--font-switzer), system-ui, sans-serif;
+  }
+
+  .font-metric {
+    font-family: var(--font-inter-tight), system-ui, sans-serif;
   }
 }
 

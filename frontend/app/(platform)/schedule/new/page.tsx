@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ArrowLeft, Save } from "lucide-react"
+import { useAuthenticatedFetch } from "@/hooks/useAuthenticatedFetch"
 
 interface CRMConnection {
   id: string
@@ -20,9 +21,11 @@ interface CRMConnection {
 
 export default function NewSchedulePage() {
   const router = useRouter()
+  const authenticatedFetch = useAuthenticatedFetch()
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
   const [connections, setConnections] = useState<CRMConnection[]>([])
+  const [justConnected, setJustConnected] = useState(false)
 
   // Form state
   const [name, setName] = useState("")
@@ -40,21 +43,45 @@ export default function NewSchedulePage() {
   useEffect(() => {
     fetchConnections()
     detectTimezone()
+
+    // Check if user just returned from connecting a CRM
+    const justReturned = sessionStorage.getItem("just_connected_crm")
+    if (justReturned === "true") {
+      setJustConnected(true)
+      sessionStorage.removeItem("just_connected_crm")
+      // Auto-fetch connections again after a short delay to ensure backend has saved
+      setTimeout(() => {
+        fetchConnections()
+      }, 500)
+    }
   }, [])
 
   const fetchConnections = async () => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/oauth/connections`)
+      const res = await authenticatedFetch(`${process.env.NEXT_PUBLIC_API_URL}/api/oauth/connections`)
       const data = await res.json()
       const activeConnections = data.connections.filter((c: CRMConnection) => c.is_active)
       setConnections(activeConnections)
 
-      // Auto-select if only one connection or if connection was just added
-      if (activeConnections.length === 1 && !connectionId) {
-        setConnectionId(activeConnections[0].id)
+      // Load previously saved connection preference
+      const savedConnectionId = localStorage.getItem("preferred_crm_connection")
+
+      if (activeConnections.length > 0) {
+        // If we have a saved preference and it still exists, use it
+        if (savedConnectionId && activeConnections.find(c => c.id === savedConnectionId)) {
+          setConnectionId(savedConnectionId)
+        }
+        // Otherwise, auto-select if only one connection
+        else if (activeConnections.length === 1 && !connectionId) {
+          setConnectionId(activeConnections[0].id)
+          // Save this as the preference
+          localStorage.setItem("preferred_crm_connection", activeConnections[0].id)
+        }
       }
     } catch (err) {
-      console.error("Error:", err)
+      console.error("Error fetching connections:", err)
+      // Show error to user
+      alert("Failed to load CRM connections. Please refresh the page.")
     } finally {
       setLoading(false)
     }
@@ -123,7 +150,7 @@ export default function NewSchedulePage() {
         slack_webhook_url: slackEnabled ? slackWebhook : null
       }
 
-      const res = await fetch(
+      const res = await authenticatedFetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/scheduled-reviews`,
         {
           method: "POST",
@@ -191,6 +218,14 @@ export default function NewSchedulePage() {
         <Card className="p-6">
           <h2 className="text-xl font-bold mb-4">Data Source</h2>
 
+          {justConnected && connections.length > 0 && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+              <p className="text-sm text-green-900">
+                ✓ <strong>CRM Connected Successfully!</strong> Your {connections[0]?.provider === "salesforce" ? "Salesforce" : "HubSpot"} account is now connected and ready to use.
+              </p>
+            </div>
+          )}
+
           {connections.length === 0 ? (
             <div className="text-center py-6">
               <p className="text-slate-600 mb-4">
@@ -203,7 +238,14 @@ export default function NewSchedulePage() {
           ) : (
             <div>
               <Label>CRM Connection *</Label>
-              <Select value={connectionId} onValueChange={setConnectionId}>
+              <Select
+                value={connectionId}
+                onValueChange={(value) => {
+                  setConnectionId(value)
+                  // Save preference for next time
+                  localStorage.setItem("preferred_crm_connection", value)
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select CRM" />
                 </SelectTrigger>
@@ -215,6 +257,15 @@ export default function NewSchedulePage() {
                   ))}
                 </SelectContent>
               </Select>
+              <p className="text-xs text-slate-600 mt-2">
+                Need a different CRM?{" "}
+                <a
+                  href="/crm?returnTo=/schedule/new"
+                  className="text-blue-600 hover:underline"
+                >
+                  Manage connections
+                </a>
+              </p>
             </div>
           )}
         </Card>

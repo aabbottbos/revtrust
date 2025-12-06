@@ -20,6 +20,7 @@ import {
 import { HealthScoreChart } from "@/components/features/HealthScoreChart"
 import { ExportButton } from "@/components/features/ExportButton"
 import { analytics } from "@/lib/analytics"
+import { useAuthenticatedFetch } from "@/hooks/useAuthenticatedFetch"
 
 interface IssueCategory {
   category: string
@@ -51,6 +52,7 @@ export default function ResultsPage() {
   const params = useParams()
   const router = useRouter()
   const analysisId = params.id as string
+  const authenticatedFetch = useAuthenticatedFetch()
 
   const [result, setResult] = useState<AnalysisResult | null>(null)
   const [loading, setLoading] = useState(true)
@@ -66,7 +68,7 @@ export default function ResultsPage() {
   const fetchResults = async () => {
     try {
       setLoading(true)
-      const response = await fetch(
+      const response = await authenticatedFetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/analysis/${analysisId}`
       )
 
@@ -92,7 +94,7 @@ export default function ResultsPage() {
 
   const checkForAiResults = async () => {
     try {
-      const response = await fetch(
+      const response = await authenticatedFetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/ai/analysis/${analysisId}`
       )
       if (response.ok) {
@@ -110,7 +112,7 @@ export default function ResultsPage() {
       // Track AI review start
       analytics.aiReviewStarted(analysisId)
 
-      const response = await fetch(
+      const response = await authenticatedFetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/ai/analyze/${analysisId}`,
         { method: 'POST' }
       )

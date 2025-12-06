@@ -22,6 +22,11 @@ function ConnectedContent() {
       setReturnPath(storedReturnTo)
       // Clean up
       sessionStorage.removeItem("oauth_return_to")
+
+      // If returning to schedule/new, set a flag so it knows to show success message
+      if (storedReturnTo === "/schedule/new") {
+        sessionStorage.setItem("just_connected_crm", "true")
+      }
     }
   }, [searchParams])
 

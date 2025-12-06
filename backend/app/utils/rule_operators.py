@@ -2,7 +2,7 @@
 Rule operators for evaluating business rules against deal data.
 Implements all operators defined in business-rules.yaml
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 
@@ -33,6 +33,11 @@ def is_past(value: Optional[datetime]) -> bool:
             value = datetime.fromisoformat(value.replace('Z', '+00:00'))
         except:
             return False
+
+    # Make value timezone-naive for comparison if it's timezone-aware
+    if value.tzinfo is not None:
+        value = value.replace(tzinfo=None)
+
     return value.date() < datetime.now().date()
 
 
@@ -45,6 +50,11 @@ def older_than_days(value: Optional[datetime], days: int) -> bool:
             value = datetime.fromisoformat(value.replace('Z', '+00:00'))
         except:
             return False
+
+    # Make value timezone-naive for comparison if it's timezone-aware
+    if value.tzinfo is not None:
+        value = value.replace(tzinfo=None)
+
     cutoff = datetime.now() - timedelta(days=days)
     return value < cutoff
 
@@ -58,6 +68,10 @@ def within_days(value: Optional[datetime], days: int) -> bool:
             value = datetime.fromisoformat(value.replace('Z', '+00:00'))
         except:
             return False
+
+    # Make value timezone-naive for comparison if it's timezone-aware
+    if value.tzinfo is not None:
+        value = value.replace(tzinfo=None)
 
     now = datetime.now()
     future_cutoff = now + timedelta(days=days)
@@ -73,6 +87,10 @@ def more_than_days_away(value: Optional[datetime], days: int) -> bool:
             value = datetime.fromisoformat(value.replace('Z', '+00:00'))
         except:
             return False
+
+    # Make value timezone-naive for comparison if it's timezone-aware
+    if value.tzinfo is not None:
+        value = value.replace(tzinfo=None)
 
     future_cutoff = datetime.now() + timedelta(days=days)
     return value > future_cutoff

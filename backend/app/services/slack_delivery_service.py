@@ -38,15 +38,24 @@ class SlackDeliveryService:
             outro_text: Custom outro text
         """
 
+        print(f"📨 Sending pipeline review to Slack...")
+        print(f"   Webhook URL: {webhook_url[:50]}..." if len(webhook_url) > 50 else f"   Webhook URL: {webhook_url}")
+        print(f"   Health Score: {template_data.get('health_score')}")
+        print(f"   Total Deals: {template_data.get('total_deals')}")
+
         try:
             # Render template
+            print(f"🔄 Rendering Slack message template...")
             message = self.env.from_string(template).render(
                 intro_text=intro_text,
                 outro_text=outro_text,
                 **template_data
             )
+            print(f"✓ Template rendered ({len(message)} characters)")
+            print(f"   Preview: {message[:100]}...")
 
             # Send to Slack
+            print(f"📤 Posting to Slack webhook...")
             response = requests.post(
                 webhook_url,
                 json={"text": message},
@@ -54,7 +63,7 @@ class SlackDeliveryService:
             )
 
             if response.status_code == 200:
-                print(f"✅ Slack message sent")
+                print(f"✅ Slack message sent successfully")
                 return True
             else:
                 print(f"❌ Slack send failed: {response.status_code} - {response.text}")
@@ -62,6 +71,8 @@ class SlackDeliveryService:
 
         except Exception as e:
             print(f"❌ Slack send failed: {e}")
+            import traceback
+            traceback.print_exc()
             return False
 
     def get_default_template(self) -> str:

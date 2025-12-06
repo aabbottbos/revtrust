@@ -24,6 +24,7 @@ import {
 } from "lucide-react"
 import { LinkedInShareButton } from "@/components/LinkedInShareButton"
 import { analytics } from "@/lib/analytics"
+import { useAuthenticatedFetch } from "@/hooks/useAuthenticatedFetch"
 
 interface DealAIResult {
   deal_id: string
@@ -72,6 +73,7 @@ interface AIAnalysis {
 export default function AIResultsPage() {
   const params = useParams()
   const router = useRouter()
+  const authenticatedFetch = useAuthenticatedFetch()
   const analysisId = params.id as string
 
   const [aiAnalysis, setAiAnalysis] = useState<AIAnalysis | null>(null)
@@ -85,7 +87,7 @@ export default function AIResultsPage() {
   const fetchAIResults = async () => {
     try {
       setLoading(true)
-      const response = await fetch(
+      const response = await authenticatedFetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/ai/analysis/${analysisId}`
       )
 

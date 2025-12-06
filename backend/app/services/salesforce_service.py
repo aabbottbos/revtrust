@@ -168,13 +168,19 @@ class SalesforceService:
     ) -> List[Dict]:
         """Fetch opportunities (deals) from Salesforce"""
 
+        print(f"🔌 Fetching opportunities from Salesforce...")
+        print(f"   Connection ID: {connection_id}")
+        print(f"   Limit: {limit}")
+
         access_token, instance_url = await self.get_valid_token(connection_id)
+        print(f"   Instance URL: {instance_url}")
 
         # Initialize Salesforce client
         sf = Salesforce(
             instance_url=instance_url,
             session_id=access_token
         )
+        print(f"✓ Salesforce client initialized")
 
         # Query opportunities
         query = """
@@ -200,12 +206,18 @@ class SalesforceService:
         LIMIT {}
         """.format(limit)
 
+        print(f"📊 Executing SOQL query...")
+        print(f"   Query: {query.strip()[:100]}...")
         result = sf.query(query)
+        print(f"✓ Query executed successfully")
+        print(f"   Total records returned: {result['totalSize']}")
+        print(f"   Records in batch: {len(result['records'])}")
 
         # Normalize to RevTrust format
+        print(f"🔄 Normalizing {len(result['records'])} opportunities to RevTrust format...")
         deals = []
-        for opp in result['records']:
-            deals.append({
+        for i, opp in enumerate(result['records'], 1):
+            deal = {
                 "id": opp["Id"],
                 "name": opp["Name"],
                 "amount": opp["Amount"] or 0,
@@ -221,8 +233,12 @@ class SalesforceService:
                 "description": opp.get("Description"),
                 "is_closed": opp["IsClosed"],
                 "is_won": opp["IsWon"]
-            })
+            }
+            deals.append(deal)
+            if i <= 3:  # Log first 3 deals for debugging
+                print(f"   Deal {i}: {deal['name']} - ${deal['amount']} - {deal['stage']}")
 
+        print(f"✅ Successfully fetched and normalized {len(deals)} deals from Salesforce")
         return deals
 
     async def test_connection(self, connection_id: str) -> bool:

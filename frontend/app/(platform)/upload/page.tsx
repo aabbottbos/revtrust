@@ -9,9 +9,11 @@ import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, Download } from "lu
 import { UploadValidator } from "@/lib/upload-validator"
 import { handleAPIResponse, getErrorMessage } from "@/lib/api-errors"
 import { analytics } from "@/lib/analytics"
+import { useAuthenticatedFetch } from "@/hooks/useAuthenticatedFetch"
 
 export default function UploadPage() {
   const router = useRouter()
+  const authenticatedFetch = useAuthenticatedFetch()
   const [file, setFile] = useState<File | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -97,12 +99,11 @@ Enterprise Co - Multi-Year Deal,280000,2024-05-01,Discovery,John Smith,Technical
       const formData = new FormData()
       formData.append("file", file)
 
-      const response = await fetch(
+      const response = await authenticatedFetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/analyze`,
         {
           method: "POST",
           body: formData,
-          credentials: "include",
         }
       )
 

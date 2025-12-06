@@ -13,6 +13,17 @@ from app.services.scheduler_service import get_scheduler_service
 router = APIRouter(prefix="/api/scheduled-reviews", tags=["Scheduled Reviews"])
 
 
+async def get_or_create_user(prisma: Prisma, clerk_id: str):
+    """Get user by Clerk ID or create if doesn't exist"""
+    user = await prisma.user.find_unique(where={"clerkId": clerk_id})
+
+    if not user:
+        # Auto-create user on first access
+        user = await prisma.user.create(data={"clerkId": clerk_id})
+
+    return user
+
+
 class CreateScheduledReviewRequest(BaseModel):
     name: str
     description: Optional[str] = None
@@ -46,13 +57,8 @@ async def create_scheduled_review(
     await prisma.connect()
 
     try:
-        # Get user to find actual ID
-        user = await prisma.user.find_unique(
-            where={"clerkId": user_id}
-        )
-
-        if not user:
-            raise HTTPException(404, "User not found")
+        # Get or create user
+        user = await get_or_create_user(prisma, user_id)
 
         # Verify CRM connection belongs to user
         connection = await prisma.crmconnection.find_first(
@@ -118,13 +124,8 @@ async def list_scheduled_reviews(
     await prisma.connect()
 
     try:
-        # Get user to find actual ID
-        user = await prisma.user.find_unique(
-            where={"clerkId": user_id}
-        )
-
-        if not user:
-            raise HTTPException(404, "User not found")
+        # Get or create user
+        user = await get_or_create_user(prisma, user_id)
 
         reviews = await prisma.scheduledreview.find_many(
             where={"userId": user.id},
@@ -166,13 +167,8 @@ async def get_scheduled_review(
     await prisma.connect()
 
     try:
-        # Get user to find actual ID
-        user = await prisma.user.find_unique(
-            where={"clerkId": user_id}
-        )
-
-        if not user:
-            raise HTTPException(404, "User not found")
+        # Get or create user
+        user = await get_or_create_user(prisma, user_id)
 
         review = await prisma.scheduledreview.find_first(
             where={
@@ -217,13 +213,8 @@ async def update_scheduled_review(
     await prisma.connect()
 
     try:
-        # Get user to find actual ID
-        user = await prisma.user.find_unique(
-            where={"clerkId": user_id}
-        )
-
-        if not user:
-            raise HTTPException(404, "User not found")
+        # Get or create user
+        user = await get_or_create_user(prisma, user_id)
 
         # Verify ownership
         review = await prisma.scheduledreview.find_first(
@@ -301,13 +292,8 @@ async def delete_scheduled_review(
     await prisma.connect()
 
     try:
-        # Get user to find actual ID
-        user = await prisma.user.find_unique(
-            where={"clerkId": user_id}
-        )
-
-        if not user:
-            raise HTTPException(404, "User not found")
+        # Get or create user
+        user = await get_or_create_user(prisma, user_id)
 
         # Verify ownership
         review = await prisma.scheduledreview.find_first(
@@ -346,13 +332,8 @@ async def run_review_now(
     await prisma.connect()
 
     try:
-        # Get user to find actual ID
-        user = await prisma.user.find_unique(
-            where={"clerkId": user_id}
-        )
-
-        if not user:
-            raise HTTPException(404, "User not found")
+        # Get or create user
+        user = await get_or_create_user(prisma, user_id)
 
         # Verify ownership
         review = await prisma.scheduledreview.find_first(
@@ -418,13 +399,8 @@ async def get_review_runs(
     await prisma.connect()
 
     try:
-        # Get user to find actual ID
-        user = await prisma.user.find_unique(
-            where={"clerkId": user_id}
-        )
-
-        if not user:
-            raise HTTPException(404, "User not found")
+        # Get or create user
+        user = await get_or_create_user(prisma, user_id)
 
         # Verify ownership
         review = await prisma.scheduledreview.find_first(

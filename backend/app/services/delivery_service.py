@@ -63,18 +63,30 @@ class DeliveryService:
                 delivery_channels = []
 
             # Deliver via email
+            print(f"📧 Checking email delivery...")
+            print(f"   Delivery channels: {delivery_channels}")
+            print(f"   Email recipients: {scheduled_review.emailRecipients}")
             if "email" in delivery_channels and scheduled_review.emailRecipients:
+                print(f"✓ Email delivery enabled, sending...")
                 await self._deliver_email(
                     scheduled_review,
                     template_data
                 )
+            else:
+                print(f"⏭️  Email delivery skipped")
 
             # Deliver via Slack
+            print(f"💬 Checking Slack delivery...")
+            print(f"   Delivery channels: {delivery_channels}")
+            print(f"   Slack webhook configured: {bool(scheduled_review.slackWebhookUrl)}")
             if "slack" in delivery_channels and scheduled_review.slackWebhookUrl:
+                print(f"✓ Slack delivery enabled, sending...")
                 await self._deliver_slack(
                     scheduled_review,
                     template_data
                 )
+            else:
+                print(f"⏭️  Slack delivery skipped (channels: {delivery_channels}, webhook: {bool(scheduled_review.slackWebhookUrl)})")
 
             print("✅ Delivery complete")
 

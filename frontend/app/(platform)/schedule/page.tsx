@@ -19,6 +19,7 @@ import {
   RefreshCw
 } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { useAuthenticatedFetch } from "@/hooks/useAuthenticatedFetch"
 
 interface ScheduledReview {
   id: string
@@ -37,6 +38,7 @@ interface ScheduledReview {
 
 export default function SchedulePage() {
   const router = useRouter()
+  const authenticatedFetch = useAuthenticatedFetch()
   const [schedules, setSchedules] = useState<ScheduledReview[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -48,7 +50,7 @@ export default function SchedulePage() {
   const fetchSchedules = async () => {
     try {
       setError(null)
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/scheduled-reviews`)
+      const res = await authenticatedFetch(`${process.env.NEXT_PUBLIC_API_URL}/api/scheduled-reviews`)
 
       if (!res.ok) {
         throw new Error(`Failed to load schedules: ${res.statusText}`)
@@ -66,7 +68,7 @@ export default function SchedulePage() {
 
   const toggleActive = async (scheduleId: string, isActive: boolean) => {
     try {
-      await fetch(
+      await authenticatedFetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/scheduled-reviews/${scheduleId}`,
         {
           method: "PATCH",
@@ -82,7 +84,7 @@ export default function SchedulePage() {
 
   const runNow = async (scheduleId: string) => {
     try {
-      const res = await fetch(
+      const res = await authenticatedFetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/scheduled-reviews/${scheduleId}/run-now`,
         { method: "POST" }
       )
@@ -99,7 +101,7 @@ export default function SchedulePage() {
     if (!confirm("Delete this scheduled review?")) return
 
     try {
-      await fetch(
+      await authenticatedFetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/scheduled-reviews/${scheduleId}`,
         { method: "DELETE" }
       )

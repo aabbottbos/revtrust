@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, CheckCircle, XCircle, Clock, ExternalLink } from "lucide-react"
+import { useAuthenticatedFetch } from "@/hooks/useAuthenticatedFetch"
 
 interface ReviewRun {
   id: string
@@ -24,6 +25,7 @@ interface ReviewRun {
 export default function RunHistoryPage() {
   const params = useParams()
   const router = useRouter()
+  const authenticatedFetch = useAuthenticatedFetch()
   const scheduleId = params.id as string
 
   const [runs, setRuns] = useState<ReviewRun[]>([])
@@ -35,7 +37,7 @@ export default function RunHistoryPage() {
 
   const fetchRuns = async () => {
     try {
-      const res = await fetch(
+      const res = await authenticatedFetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/scheduled-reviews/${scheduleId}/runs`
       )
       const data = await res.json()

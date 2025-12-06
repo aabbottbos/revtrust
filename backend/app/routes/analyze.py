@@ -8,6 +8,7 @@ import traceback
 import uuid
 import asyncio
 from datetime import datetime
+from prisma import Prisma
 
 from app.utils.file_parser import FileParser, DataCleaner
 from app.utils.field_mapper import FieldMapper
@@ -550,7 +551,7 @@ async def get_user_history(
 ):
     """
     Get analysis history for current user.
-    Returns list of completed analyses with summary info.
+    Returns list of completed analyses (both manual uploads and scheduled reviews).
     """
     # Filter analyses for this user that are completed
     user_analyses = []
@@ -569,7 +570,61 @@ async def get_user_history(
                 "health_score": analysis_data.get("health_score", 0),
                 "health_status": result.get("health_status", "unknown"),
                 "analyzed_at": status.get("updated_at"),
+                "source": "manual",
             })
+
+    # Add completed scheduled reviews
+    prisma = Prisma()
+    await prisma.connect()
+
+    try:
+        # Get user to find actual ID
+        user = await prisma.user.find_unique(
+            where={"clerkId": user_id}
+        )
+
+        if user:
+            # Get all completed review runs for this user's scheduled reviews
+            runs = await prisma.reviewrun.find_many(
+                where={
+                    "status": "completed",
+                    "scheduledReview": {
+                        "userId": user.id
+                    }
+                },
+                include={
+                    "scheduledReview": True
+                },
+                order={
+                    "completedAt": "desc"
+                }
+            )
+
+            for run in runs:
+                # Calculate health status from score
+                health_score = run.healthScore or 0
+                if health_score >= 80:
+                    health_status = "excellent"
+                elif health_score >= 60:
+                    health_status = "good"
+                elif health_score >= 40:
+                    health_status = "fair"
+                else:
+                    health_status = "poor"
+
+                user_analyses.append({
+                    "analysis_id": run.analysisId or run.id,
+                    "filename": f"{run.scheduledReview.name} (Scheduled)",
+                    "total_deals": run.dealsAnalyzed or 0,
+                    "deals_with_issues": run.issuesFound or 0,
+                    "health_score": health_score,
+                    "health_status": health_status,
+                    "analyzed_at": run.completedAt.isoformat() if run.completedAt else run.startedAt.isoformat(),
+                    "source": "scheduled",
+                    "schedule_name": run.scheduledReview.name,
+                })
+    finally:
+        await prisma.disconnect()
 
     # Sort by date (newest first)
     user_analyses.sort(key=lambda x: x["analyzed_at"], reverse=True)

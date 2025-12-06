@@ -270,8 +270,14 @@ async def list_connections(
     await prisma.connect()
 
     try:
+        # Look up user by clerkId to get database ID
+        user = await prisma.user.find_unique(where={"clerkId": user_id})
+        if not user:
+            return {"connections": []}
+
+        # Query connections using database userId
         connections = await prisma.crmconnection.find_many(
-            where={"userId": user_id}
+            where={"userId": user.id}
         )
 
         return {
@@ -302,12 +308,17 @@ async def delete_connection(
     await prisma.connect()
 
     try:
+        # Look up user by clerkId to get database ID
+        user = await prisma.user.find_unique(where={"clerkId": user_id})
+        if not user:
+            raise HTTPException(404, "User not found")
+
         # Verify ownership
         connection = await prisma.crmconnection.find_unique(
             where={"id": connection_id}
         )
 
-        if not connection or connection.userId != user_id:
+        if not connection or connection.userId != user.id:
             raise HTTPException(404, "Connection not found")
 
         # Delete

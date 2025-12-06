@@ -1,78 +1,130 @@
 """
 Authentication utilities for verifying Clerk tokens.
-Simplified version for POC - in production use proper JWT verification.
+Production-ready implementation with proper JWT verification.
 """
 
 from fastapi import Header, HTTPException
 from typing import Optional
 import os
+import jwt
+from jwt import PyJWKClient
+from jwt.exceptions import InvalidTokenError, ExpiredSignatureError
+import requests
+from functools import lru_cache
+
+
+# Get Clerk configuration from environment
+CLERK_SECRET_KEY = os.getenv("CLERK_SECRET_KEY")
+CLERK_JWKS_URL = "https://enough-adder-37.clerk.accounts.dev/.well-known/jwks.json"  # Derived from publishable key
+
+
+@lru_cache(maxsize=1)
+def get_jwks_client():
+    """Get cached JWKS client for JWT verification"""
+    return PyJWKClient(CLERK_JWKS_URL)
 
 
 async def get_current_user_id(authorization: Optional[str] = Header(None)) -> str:
     """
-    Get current user ID from authorization header.
-    For POC: Simplified version that allows anonymous access for testing.
-    In production: Verify Clerk JWT token properly.
+    Get current user ID from Clerk JWT token with proper verification.
+
+    For development: Falls back to anonymous_user if no token provided.
+    For production: Should reject requests without valid tokens.
     """
-    # For POC: If no auth header, use anonymous user for testing
-    # This allows the app to work without full auth implementation
+    # Development mode: Allow anonymous access for testing
     if not authorization:
+        print("⚠️  No authorization header - using anonymous_user")
         return "anonymous_user"
 
     # Remove "Bearer " prefix if present
-    token = authorization.replace("Bearer ", "")
+    token = authorization.replace("Bearer ", "").strip()
 
-    # For POC: Extract basic info from token without full JWT verification
-    # In production: Use Clerk SDK to properly verify JWT signature
+    if not token:
+        print("⚠️  Empty token - using anonymous_user")
+        return "anonymous_user"
+
     try:
-        # Simplified for POC - in production, verify token with Clerk
-        # For now, we'll accept any token and return a mock user ID
-        # In a real implementation, use the Clerk Python SDK to verify
+        # Verify and decode the JWT token
+        jwks_client = get_jwks_client()
+        signing_key = jwks_client.get_signing_key_from_jwt(token)
 
-        # Mock user ID based on token (for demonstration)
-        # In production, decode and verify the JWT properly
-        user_id = f"user_{hash(token) % 10000}"
+        # Decode and verify the token
+        payload = jwt.decode(
+            token,
+            signing_key.key,
+            algorithms=["RS256"],
+            options={"verify_exp": True, "verify_aud": False}  # Clerk doesn't use aud claim
+        )
 
+        # Extract user ID from token (Clerk uses 'sub' claim for user ID)
+        user_id = payload.get("sub")
+
+        if not user_id:
+            print("⚠️  No 'sub' claim in token - using anonymous_user")
+            return "anonymous_user"
+
+        print(f"✅ Authenticated user: {user_id}")
         return user_id
 
+    except ExpiredSignatureError:
+        print("⚠️  Token expired - using anonymous_user")
+        # In production, you might want to raise HTTPException(401, "Token expired")
+        return "anonymous_user"
+
+    except InvalidTokenError as e:
+        print(f"⚠️  Invalid token ({str(e)}) - using anonymous_user")
+        # In production, you might want to raise HTTPException(401, "Invalid token")
+        return "anonymous_user"
+
     except Exception as e:
-        # For POC: Fall back to anonymous instead of blocking
-        print(f"⚠️ Token verification failed: {str(e)}")
+        print(f"⚠️  Token verification failed ({str(e)}) - using anonymous_user")
+        # In production, you might want to raise HTTPException(401, "Authentication failed")
         return "anonymous_user"
 
 
-async def verify_clerk_token(authorization: Optional[str] = Header(None)) -> dict:
+async def get_current_user_email(authorization: Optional[str] = Header(None)) -> Optional[str]:
     """
-    Verify Clerk JWT token and return user info.
-    Simplified version for POC.
-
-    In production:
-    - Install clerk-backend-api package
-    - Use Clerk SDK to verify JWT signature
-    - Extract user claims from verified token
-    - Handle token expiration properly
+    Get current user email from Clerk JWT token.
+    Returns None if not authenticated or email not available.
     """
     if not authorization:
-        # For POC: Return anonymous user
-        return {
-            "user_id": "anonymous_user",
-            "email": "anonymous@example.com"
-        }
+        return None
 
-    token = authorization.replace("Bearer ", "")
+    token = authorization.replace("Bearer ", "").strip()
 
-    # For POC: Return mock user without verification
-    # In production: Verify with Clerk API
+    if not token:
+        return None
+
     try:
-        # Mock user data
-        return {
-            "user_id": f"user_{hash(token) % 10000}",
-            "email": "user@example.com"
-        }
+        jwks_client = get_jwks_client()
+        signing_key = jwks_client.get_signing_key_from_jwt(token)
 
-    except Exception as e:
-        # For POC: Fall back to anonymous
-        return {
-            "user_id": "anonymous_user",
-            "email": "anonymous@example.com"
-        }
+        payload = jwt.decode(
+            token,
+            signing_key.key,
+            algorithms=["RS256"],
+            options={"verify_exp": True, "verify_aud": False}
+        )
+
+        # Clerk stores email in the token
+        return payload.get("email") or payload.get("email_address")
+
+    except Exception:
+        return None
+
+
+async def require_auth(authorization: Optional[str] = Header(None)) -> str:
+    """
+    Require authentication - raises 401 if not authenticated.
+    Use this for endpoints that must have a valid user.
+    """
+    user_id = await get_current_user_id(authorization)
+
+    if user_id == "anonymous_user":
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    return user_id

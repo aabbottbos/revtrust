@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Loader2, FileText, Calendar, TrendingUp, TrendingDown } from "lucide-react"
 import { format } from "date-fns"
+import { useAuthenticatedFetch } from "@/hooks/useAuthenticatedFetch"
 
 interface Analysis {
   analysis_id: string
@@ -23,6 +24,7 @@ export default function HistoryPage() {
   const [analyses, setAnalyses] = useState<Analysis[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const authenticatedFetch = useAuthenticatedFetch()
 
   useEffect(() => {
     fetchHistory()
@@ -32,7 +34,7 @@ export default function HistoryPage() {
     try {
       setLoading(true)
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
-      const response = await fetch(`${apiUrl}/api/history`)
+      const response = await authenticatedFetch(`${apiUrl}/api/history`)
 
       if (!response.ok) throw new Error("Failed to fetch history")
 
