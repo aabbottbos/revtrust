@@ -237,6 +237,7 @@ async def update_scheduled_review(
             raise HTTPException(404, "Scheduled review not found")
 
         # Build update data
+        import json
         update_data = {}
         if request.name is not None:
             update_data["name"] = request.name
@@ -247,7 +248,7 @@ async def update_scheduled_review(
         if request.timezone is not None:
             update_data["timezone"] = request.timezone
         if request.delivery_channels is not None:
-            update_data["deliveryChannels"] = request.delivery_channels
+            update_data["deliveryChannels"] = json.dumps(request.delivery_channels)
         if request.email_recipients is not None:
             update_data["emailRecipients"] = request.email_recipients
         if request.slack_webhook_url is not None:

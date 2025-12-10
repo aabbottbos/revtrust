@@ -7,6 +7,7 @@ from datetime import datetime
 from prisma import Prisma
 from app.services.salesforce_service import get_salesforce_service
 from app.services.hubspot_service import get_hubspot_service
+from app.services.ai_service import get_ai_service
 from app.utils.business_rules_engine import BusinessRulesEngine
 import traceback
 
@@ -16,6 +17,7 @@ class ReviewJobService:
 
     def __init__(self):
         self.rules_engine = BusinessRulesEngine()
+        self.ai_service = get_ai_service()
 
     async def execute_review(
         self,
@@ -72,6 +74,16 @@ class ReviewJobService:
             print(f"✓ Analysis complete - Health Score: {health_score}/100")
             print(f"✓ Found {len(violations)} issues")
 
+            # Step 2.5: Run AI analysis on deals
+            print("🤖 Running AI analysis on deals...")
+            ai_results = await self.ai_service.analyze_deal_batch(deals)
+            print(f"✓ AI analysis complete - Analyzed {len(ai_results)} deals")
+
+            # Step 2.6: Generate pipeline summary
+            print("📊 Generating pipeline summary...")
+            pipeline_summary = await self.ai_service.generate_pipeline_summary(deals, ai_results)
+            print(f"✓ Pipeline summary generated - Health: {pipeline_summary.get('overall_health', 'unknown')}")
+
             # Step 3: Store results
             print("💾 Storing results...")
 
@@ -107,7 +119,23 @@ class ReviewJobService:
 
                     delivery_service = get_delivery_service()
 
-                    # For now, pass a simplified analysis_id (could create Analysis record if needed)
+                    # Convert AI results to dict format for delivery
+                    ai_results_dict = [
+                        {
+                            "deal_id": r.deal_id,
+                            "deal_name": r.deal_name,
+                            "deal_amount": r.deal_amount,
+                            "risk_level": r.risk_level,
+                            "risk_score": r.risk_score,
+                            "risk_factors": r.risk_factors,
+                            "next_best_action": r.next_best_action,
+                            "action_priority": r.action_priority,
+                            "action_rationale": r.action_rationale,
+                            "executive_summary": r.executive_summary
+                        }
+                        for r in ai_results
+                    ]
+
                     await delivery_service.deliver_review_results(
                         scheduled_review_id=scheduled_review_id,
                         analysis_id=run_id,  # Using run_id as placeholder
@@ -115,11 +143,8 @@ class ReviewJobService:
                             "health_score": health_score,
                             "deals_analyzed": len(deals),
                             "ai_results": {
-                                "pipeline_summary": {
-                                    "key_insight": f"Pipeline health score: {health_score}/100 with {len(violations)} issues found across {len(deals)} deals.",
-                                    "top_3_risks": []  # Could extract from violations
-                                },
-                                "results": []
+                                "pipeline_summary": pipeline_summary,
+                                "results": ai_results_dict
                             }
                         }
                     )
