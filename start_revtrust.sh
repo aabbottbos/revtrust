@@ -211,6 +211,14 @@ if [ -n "$HUNG_UVICORN" ]; then
     sleep 1
 fi
 
+# Kill any existing RQ worker processes
+HUNG_WORKER=$(ps aux | grep "[a]pp.worker" | awk '{print $2}')
+if [ -n "$HUNG_WORKER" ]; then
+    echo -e "${YELLOW}⚠ Found existing RQ worker process(es). Killing...${NC}"
+    echo "$HUNG_WORKER" | xargs kill -9 2>/dev/null || true
+    sleep 1
+fi
+
 # Check backend port (8000)
 if lsof -Pi :8000 -sTCP:LISTEN -t >/dev/null 2>&1; then
     echo -e "${YELLOW}⚠ Port 8000 is in use. Killing existing process...${NC}"

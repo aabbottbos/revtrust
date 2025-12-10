@@ -74,9 +74,18 @@ class ReviewJobService:
             print(f"✓ Analysis complete - Health Score: {health_score}/100")
             print(f"✓ Found {len(violations)} issues")
 
+            # Group violations by deal ID
+            violations_by_deal = {}
+            for violation in violations:
+                deal_id = violation.get("deal_id", "")
+                if deal_id:
+                    if deal_id not in violations_by_deal:
+                        violations_by_deal[deal_id] = []
+                    violations_by_deal[deal_id].append(violation)
+
             # Step 2.5: Run AI analysis on deals
             print("🤖 Running AI analysis on deals...")
-            ai_results = await self.ai_service.analyze_deal_batch(deals)
+            ai_results = await self.ai_service.analyze_pipeline(deals, violations_by_deal)
             print(f"✓ AI analysis complete - Analyzed {len(ai_results)} deals")
 
             # Step 2.6: Generate pipeline summary
@@ -119,12 +128,15 @@ class ReviewJobService:
 
                     delivery_service = get_delivery_service()
 
+                    # Create a lookup dictionary for deal amounts
+                    deal_amounts = {d.get("id"): d.get("amount", 0) for d in deals}
+
                     # Convert AI results to dict format for delivery
                     ai_results_dict = [
                         {
                             "deal_id": r.deal_id,
                             "deal_name": r.deal_name,
-                            "deal_amount": r.deal_amount,
+                            "deal_amount": deal_amounts.get(r.deal_id, 0),
                             "risk_level": r.risk_level,
                             "risk_score": r.risk_score,
                             "risk_factors": r.risk_factors,

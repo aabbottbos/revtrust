@@ -4,8 +4,12 @@ RQ worker configuration and job definitions
 
 import os
 import sys
+from dotenv import load_dotenv
 from redis import Redis
 from rq import Worker, Queue
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Setup Redis connection
 redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")

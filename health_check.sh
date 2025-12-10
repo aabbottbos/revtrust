@@ -55,7 +55,7 @@ fi
 
 # Check RQ Worker
 echo -n "RQ Worker                  ... "
-if ps aux | grep -q "[p]ython -m app.worker"; then
+if ps aux | grep -q "[a]pp.worker"; then
     echo -e "${GREEN}✓ Running${NC}"
 else
     echo -e "${RED}✗ Not running${NC}"

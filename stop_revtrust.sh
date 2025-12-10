@@ -63,6 +63,39 @@ if lsof -ti:3000 >/dev/null 2>&1; then
     lsof -ti:3000 | xargs kill -9 2>/dev/null || true
 fi
 
+# Stop PostgreSQL
+echo ""
+echo -e "${YELLOW}Stopping PostgreSQL...${NC}"
+
+if command -v brew >/dev/null 2>&1; then
+    # Detect installed PostgreSQL version
+    PG_VERSION=$(brew services list | grep "^postgresql" | grep started | awk '{print $1}' | head -n 1)
+
+    if [ -n "$PG_VERSION" ]; then
+        brew services stop "$PG_VERSION" >/dev/null 2>&1
+        echo -e "${GREEN}✓ PostgreSQL stopped${NC}"
+    else
+        echo -e "${YELLOW}○ PostgreSQL not running via Homebrew${NC}"
+    fi
+else
+    echo -e "${YELLOW}○ Homebrew not found, skipping PostgreSQL stop${NC}"
+fi
+
+# Stop Redis
+echo ""
+echo -e "${YELLOW}Stopping Redis...${NC}"
+
+if command -v brew >/dev/null 2>&1; then
+    if brew services list | grep "^redis" | grep -q started; then
+        brew services stop redis >/dev/null 2>&1
+        echo -e "${GREEN}✓ Redis stopped${NC}"
+    else
+        echo -e "${YELLOW}○ Redis not running via Homebrew${NC}"
+    fi
+else
+    echo -e "${YELLOW}○ Homebrew not found, skipping Redis stop${NC}"
+fi
+
 echo ""
 echo -e "${GREEN}════════════════════════════════════════════════════════${NC}"
 echo -e "${GREEN}          All RevTrust services stopped                ${NC}"
