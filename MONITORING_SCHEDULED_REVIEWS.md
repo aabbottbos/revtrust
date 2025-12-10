@@ -4,12 +4,14 @@
 
 ### Check if Scheduled Review is Working
 
+Slack: https://hooks.slack.com/services/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
+
 **1. Via Frontend UI (Easiest)**
 ```
 http://localhost:3000/schedule/[schedule-id]/history
 ```
 You'll see all runs with status indicators:
-- ✓ Completed (green) - Success!
+- ✓ Completed (green) - Success!   
 - ✗ Failed (red) - Error occurred
 - ⏱ Running (blue) - Currently processing
 - Queued (gray) - Waiting to start
@@ -22,6 +24,8 @@ curl http://localhost:8000/api/scheduled-reviews | python3 -m json.tool
 # Check run history for a specific schedule
 curl http://localhost:8000/api/scheduled-reviews/[schedule-id]/runs | python3 -m json.tool
 ```
+curl http://localhost:8000/api/scheduled-reviews/fed65b6e-4b5b-4283-875b-9cfd9f218837/runs | python3 -m json.tool
+
 
 **3. Via Backend Logs**
 Look for these messages in your backend terminal:
@@ -158,12 +162,16 @@ cd backend
 export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
 poetry run python -m app.worker
 
+kill backend: lsof -ti:8000 | xargs kill -9
+
 # 3. Check worker logs for errors
 ```
 
 ### Job Stuck in "Queued"
 
 **Symptom:** Status stays "queued" forever
+
+how to kill workers: lsof -ti:8000 | xargs kill -9 2>/dev/null; ps aux | grep -E "(rq worker|app.worker)" | grep -v grep | awk '{print $2}' | xargs kill -9 2>/dev/null; echo "Killed all backend and worker processes"
 
 **Causes:**
 1. Worker not running
@@ -416,3 +424,81 @@ You know it's working when:
 
 **Last Updated:** Session 23
 **Status:** Production Ready ✅
+
+
+Git stuff
+
+Push to main
+ git push origin main
+
+ push to remote
+ ⏺ Here are the complete instructions to commit and push your authentication changes:
+
+  1. Review what's changed
+
+  git status
+
+  2. Review the actual changes (optional but recommended)
+
+  git diff
+
+  3. Add all changes to staging
+
+  git add .
+
+  Or if you prefer to add specific files:
+  git add backend/app/auth.py
+  git add backend/app/routes/
+  git add backend/app/services/
+  git add backend/app/worker.py
+  git add backend/app/utils/rule_operators.py
+  git add backend/poetry.lock backend/pyproject.toml
+  git add frontend/
+  git add AUTH_IMPLEMENTATION.md
+
+  4. Create the commit
+
+  git commit -m "feat: implement Clerk authentication for multi-user support
+
+  - Add JWT verification using Clerk JWKS endpoint in backend
+  - Add pyjwt and cryptography dependencies
+  - Create authentication middleware for frontend route protection
+  - Add useAuthenticatedFetch hook for client components
+  - Add authenticatedFetch helper for server components
+  - Update all platform pages to use authenticated API calls
+  - Implement user isolation for scheduled reviews, CRM connections, and history
+  - Add comprehensive authentication documentation
+
+  This enables RevTrust to scale to 10,000+ users with proper data isolation.
+
+  🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+  Co-Authored-By: Claude <noreply@anthropic.com>"
+
+  5. Push to remote
+
+  git push origin main
+
+  If this is your first push or the branch doesn't exist on remote yet:
+  git push -u origin main
+
+  ---
+  All in one command (if you're confident):
+  git add . && git commit -m "feat: implement Clerk authentication for multi-user support
+
+  - Add JWT verification using Clerk JWKS endpoint in backend
+  - Add pyjwt and cryptography dependencies
+  - Create authentication middleware for frontend route protection
+  - Add useAuthenticatedFetch hook for client components
+  - Add authenticatedFetch helper for server components
+  - Update all platform pages to use authenticated API calls
+  - Implement user isolation for scheduled reviews, CRM connections, and history
+  - Add comprehensive authentication documentation
+
+  This enables RevTrust to scale to 10,000+ users with proper data isolation.
+
+  🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+  Co-Authored-By: Claude <noreply@anthropic.com>" && git push origin main
+
+  Would you like me to execute these commands for you instead?

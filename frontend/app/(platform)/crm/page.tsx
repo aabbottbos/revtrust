@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -17,7 +17,7 @@ interface Connection {
   created_at: string
 }
 
-export default function CRMConnectionsPage() {
+function CRMConnectionsContent() {
   const searchParams = useSearchParams()
   const authenticatedFetch = useAuthenticatedFetch()
   const [connections, setConnections] = useState<Connection[]>([])
@@ -225,5 +225,13 @@ export default function CRMConnectionsPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function CRMConnectionsPage() {
+  return (
+    <Suspense fallback={<div className="container mx-auto px-4 py-8 max-w-4xl text-center">Loading...</div>}>
+      <CRMConnectionsContent />
+    </Suspense>
   )
 }

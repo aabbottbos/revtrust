@@ -68,7 +68,7 @@ export default function NewSchedulePage() {
 
       if (activeConnections.length > 0) {
         // If we have a saved preference and it still exists, use it
-        if (savedConnectionId && activeConnections.find(c => c.id === savedConnectionId)) {
+        if (savedConnectionId && activeConnections.find((c: CRMConnection) => c.id === savedConnectionId)) {
           setConnectionId(savedConnectionId)
         }
         // Otherwise, auto-select if only one connection
@@ -328,8 +328,8 @@ export default function NewSchedulePage() {
               <p className="text-sm text-blue-900">
                 <strong>Next run:</strong> {frequency === "daily" ? "Every day" :
                   frequency === "weekdays" ? "Monday-Friday" :
-                  frequency === "monday" ? "Every Monday" :
-                  "Mon, Wed, Fri"} at {hour}:00 {timezone.split("/")[1]}
+                    frequency === "monday" ? "Every Monday" :
+                      "Mon, Wed, Fri"} at {hour}:00 {timezone.split("/")[1]}
               </p>
             </div>
           </div>
