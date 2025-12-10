@@ -74,8 +74,6 @@ redis-server
   Note: The -9 flag (SIGKILL) forces immediate termination. For a more graceful shutdown, you can use kill without -9 (sends SIGTERM) first, then use -9 if
   processes don't stop.
 
-https://hooks.slack.com/services/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
-
 ## Coding Standards
 
 1. **Naming Conventions & Structure**: Maintain the existing component naming conventions and directory structure established in the initial Claude codebase.

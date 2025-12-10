@@ -50,20 +50,21 @@ fi
 # Show commits to be pushed
 echo -e "${YELLOW}Commits to be pushed ($UNPUSHED):${NC}"
 echo ""
-git log @{u}.. --oneline --decorate
+git --no-pager log @{u}.. --oneline --decorate
 echo ""
 
 # Show detailed info about commits
 echo -e "${YELLOW}Detailed commit info:${NC}"
 echo ""
-git log @{u}.. --stat
+git --no-pager log @{u}.. --stat
 echo ""
 
 # Safety check for force push to main/master
 if [[ "$CURRENT_BRANCH" == "main" || "$CURRENT_BRANCH" == "master" ]]; then
     if [[ "$1" == "--force" || "$1" == "-f" ]]; then
         echo -e "${RED}⚠ WARNING: Force push to $CURRENT_BRANCH is dangerous!${NC}"
-        read -p "$(echo -e ${RED}Are you ABSOLUTELY sure? [y/N]: ${NC})" -n 1 -r
+        echo -ne "${RED}Are you ABSOLUTELY sure? [y/N]: ${NC}"
+        read -n 1 -r
         echo ""
         if [[ ! $REPLY =~ ^[Yy]$ ]]; then
             echo -e "${YELLOW}Push cancelled${NC}"
@@ -78,7 +79,8 @@ if git status -sb | grep -q "diverged"; then
     echo -e "${YELLOW}You may need to pull and merge changes first:${NC}"
     echo -e "  git pull --rebase origin $CURRENT_BRANCH"
     echo ""
-    read -p "$(echo -e ${YELLOW}Continue with push anyway? [y/N]: ${NC})" -n 1 -r
+    echo -ne "${YELLOW}Continue with push anyway? [y/N]: ${NC}"
+    read -n 1 -r
     echo ""
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
         echo -e "${YELLOW}Push cancelled${NC}"
@@ -87,7 +89,8 @@ if git status -sb | grep -q "diverged"; then
 fi
 
 # Final confirmation
-read -p "$(echo -e ${YELLOW}Push $UNPUSHED commit(s) to remote? [y/N]: ${NC})" -n 1 -r
+echo -ne "${YELLOW}Push $UNPUSHED commit(s) to remote? [y/N]: ${NC}"
+read -n 1 -r
 echo ""
 
 if [[ ! $REPLY =~ ^[Yy]$ ]]; then

@@ -4,7 +4,7 @@
 
 ### Check if Scheduled Review is Working
 
-Slack: https://hooks.slack.com/services/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
+**Slack Notifications**: Configure your Slack webhook URL in the scheduled review settings or via the `SLACK_WEBHOOK_URL` environment variable.
 
 **1. Via Frontend UI (Easiest)**
 ```

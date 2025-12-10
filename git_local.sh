@@ -40,11 +40,12 @@ fi
 # Show detailed diff
 echo -e "${YELLOW}Changes to be committed:${NC}"
 echo ""
-git diff --stat
+git --no-pager diff --stat
 echo ""
 
 # Ask for confirmation
-read -p "$(echo -e ${YELLOW}Review the changes above. Continue with commit? [y/N]: ${NC})" -n 1 -r
+echo -ne "${YELLOW}Review the changes above. Continue with commit? [y/N]: ${NC}"
+read -n 1 -r
 echo ""
 
 if [[ ! $REPLY =~ ^[Yy]$ ]]; then
@@ -86,7 +87,7 @@ git add .
 # Show what will be committed
 echo ""
 echo -e "${YELLOW}Files to be committed:${NC}"
-git diff --cached --name-status
+git --no-pager diff --cached --name-status
 echo ""
 
 # Create the commit
@@ -104,7 +105,7 @@ if [ $? -eq 0 ]; then
 
     # Show the commit
     echo -e "${BLUE}Commit details:${NC}"
-    git log -1 --stat
+    git --no-pager log -1 --stat
     echo ""
 
     # Show local vs remote status
