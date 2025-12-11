@@ -19,6 +19,41 @@ class SlackDeliveryService:
         self.env = Environment()
         self.env.filters['format_number'] = format_number
 
+    async def send_simple_notification(
+        self,
+        webhook_url: str,
+        message: str
+    ) -> bool:
+        """
+        Send a simple text notification to Slack
+
+        Args:
+            webhook_url: Slack webhook URL
+            message: Plain text message to send
+        """
+
+        print(f"📨 Sending simple notification to Slack...")
+
+        try:
+            response = requests.post(
+                webhook_url,
+                json={"text": message},
+                headers={"Content-Type": "application/json"}
+            )
+
+            if response.status_code == 200:
+                print(f"✅ Slack notification sent successfully")
+                return True
+            else:
+                print(f"❌ Slack send failed: {response.status_code} - {response.text}")
+                return False
+
+        except Exception as e:
+            print(f"❌ Slack send failed: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
     async def send_pipeline_review(
         self,
         webhook_url: str,

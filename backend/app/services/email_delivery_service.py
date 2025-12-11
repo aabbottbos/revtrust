@@ -26,6 +26,81 @@ class EmailDeliveryService:
         self.env = Environment()
         self.env.filters['format_number'] = format_number
 
+    async def send_simple_notification(
+        self,
+        to_emails: List[str],
+        subject: str,
+        message: str
+    ) -> bool:
+        """
+        Send a simple text notification email
+
+        Args:
+            to_emails: List of recipient emails
+            subject: Email subject
+            message: Plain text message to send
+        """
+
+        try:
+            # Create simple HTML body
+            body_html = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }}
+        .container {{
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }}
+        .message {{
+            font-size: 16px;
+            margin: 20px 0;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="message">{message}</div>
+    </div>
+</body>
+</html>
+"""
+
+            # Send email
+            params = {
+                "from": self.from_email,
+                "to": to_emails,
+                "subject": subject,
+                "html": body_html
+            }
+
+            result = resend.Emails.send(params)
+
+            print(f"✅ Email notification sent to {', '.join(to_emails)}")
+            print(f"   Subject: {subject}")
+            print(f"   Email ID: {result['id']}")
+
+            return True
+
+        except Exception as e:
+            print(f"❌ Email send failed: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
     async def send_pipeline_review(
         self,
         to_emails: List[str],

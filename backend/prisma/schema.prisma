@@ -226,7 +226,7 @@ model FieldMapping {
   @@map("field_mappings")
 }
 
-// CRM Connection (Salesforce/HubSpot OAuth)
+// CRM Connection (Salesforce OAuth / HubSpot Private App)
 model CRMConnection {
   id              String   @id @default(uuid())
   userId          String
@@ -234,13 +234,13 @@ model CRMConnection {
 
   provider        String   // "salesforce" | "hubspot"
 
-  // Encrypted OAuth tokens
+  // Encrypted tokens
   accessToken     String   @db.Text
-  refreshToken    String   @db.Text
+  refreshToken    String?  @db.Text  // Optional: Only for OAuth (Salesforce)
   instanceUrl     String?  // Salesforce instance URL
   portalId        String?  // HubSpot portal ID
 
-  expiresAt       DateTime
+  expiresAt       DateTime?  // Optional: Only for OAuth (Salesforce)
 
   // Connection metadata
   accountName     String?  // Friendly name for this connection

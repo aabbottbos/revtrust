@@ -152,9 +152,9 @@ async def list_scheduled_reviews(
                     "timezone": r.timezone,
                     "delivery_channels": r.deliveryChannels,
                     "is_active": r.isActive,
-                    "last_run_at": r.lastRunAt.isoformat() if r.lastRunAt else None,
-                    "next_run_at": r.nextRunAt.isoformat() if r.nextRunAt else None,
-                    "created_at": r.createdAt.isoformat()
+                    "last_run_at": r.lastRunAt.isoformat() + "-05:00" if r.lastRunAt else None,
+                    "next_run_at": r.nextRunAt.isoformat() + "-05:00" if r.nextRunAt else None,
+                    "created_at": r.createdAt.isoformat() + "-05:00"
                 }
                 for r in reviews
             ]

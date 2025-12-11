@@ -136,9 +136,11 @@ class SalesforceService:
             if not connection:
                 raise Exception("Connection not found")
 
-            # Check if token is expired or expiring soon
-            if connection.expiresAt < datetime.now(timezone.utc) + timedelta(minutes=5):
+            # Check if token is expired or expiring soon (for OAuth connections)
+            if connection.expiresAt and connection.expiresAt < datetime.now(timezone.utc) + timedelta(minutes=5):
                 # Refresh token
+                if not connection.refreshToken:
+                    raise Exception("Connection expired but no refresh token available")
                 refresh_token = self.encryption.decrypt(connection.refreshToken)
                 token_data = await self.refresh_access_token(refresh_token)
 

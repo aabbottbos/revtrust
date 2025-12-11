@@ -23,6 +23,7 @@ function CRMConnectionsContent() {
   const [connections, setConnections] = useState<Connection[]>([])
   const [loading, setLoading] = useState(true)
   const [connecting, setConnecting] = useState<string | null>(null)
+  const [hubspotToken, setHubspotToken] = useState("")
   const returnTo = searchParams.get("returnTo")
 
   useEffect(() => {
@@ -57,18 +58,37 @@ function CRMConnectionsContent() {
     }
   }
 
-  const connectHubSpot = async () => {
+  const connectHubSpot = async (accessToken: string) => {
     setConnecting("hubspot")
     try {
-      // Store returnTo in sessionStorage to preserve through OAuth redirect
-      if (returnTo) {
-        sessionStorage.setItem("oauth_return_to", returnTo)
+      const res = await authenticatedFetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/oauth/hubspot/connect`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ access_token: accessToken })
+        }
+      )
+
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.detail || "Failed to connect HubSpot")
       }
-      const res = await authenticatedFetch(`${process.env.NEXT_PUBLIC_API_URL}/api/oauth/hubspot/authorize`)
+
       const data = await res.json()
-      window.location.href = data.authorization_url
-    } catch (err) {
+
+      // Clear token and refresh connections
+      setHubspotToken("")
+      await fetchConnections()
+
+      // If there's a returnTo URL, redirect there
+      if (returnTo) {
+        window.location.href = returnTo
+      }
+    } catch (err: any) {
       console.error("Error:", err)
+      alert(err.message || "Failed to connect HubSpot")
+    } finally {
       setConnecting(null)
     }
   }
@@ -203,24 +223,42 @@ function CRMConnectionsContent() {
               <div>
                 <div className="font-bold">HubSpot</div>
                 <div className="text-sm text-slate-600">
-                  Connect your HubSpot portal
+                  Connect using Private App
                 </div>
               </div>
             </div>
-            <Button
-              onClick={connectHubSpot}
-              disabled={connecting === "hubspot"}
-              className="w-full"
-            >
-              {connecting === "hubspot" ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Connecting...
-                </>
-              ) : (
-                "Connect HubSpot"
-              )}
-            </Button>
+            <div className="space-y-3">
+              <div>
+                <label className="text-sm text-slate-600 mb-1 block">
+                  Private App Access Token
+                </label>
+                <input
+                  type="password"
+                  value={hubspotToken}
+                  onChange={(e) => setHubspotToken(e.target.value)}
+                  placeholder="pat-na1-..."
+                  className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm"
+                  disabled={connecting === "hubspot"}
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  Create a Private App in HubSpot Settings → Integrations → Private Apps
+                </p>
+              </div>
+              <Button
+                onClick={() => connectHubSpot(hubspotToken)}
+                disabled={connecting === "hubspot" || !hubspotToken.trim()}
+                className="w-full"
+              >
+                {connecting === "hubspot" ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Connecting...
+                  </>
+                ) : (
+                  "Connect HubSpot"
+                )}
+              </Button>
+            </div>
           </Card>
         </div>
       </div>

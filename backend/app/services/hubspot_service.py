@@ -4,103 +4,103 @@ HubSpot integration service
 
 from hubspot import HubSpot
 from hubspot.crm.deals import ApiException
-from typing import List, Dict
-import requests
+from typing import List, Dict, Optional
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 from app.services.encryption_service import get_encryption_service
 from prisma import Prisma
 
 
 class HubSpotService:
-    """Handle HubSpot OAuth and data fetching"""
+    """Handle HubSpot Private App integration"""
 
     def __init__(self):
         self.encryption = get_encryption_service()
 
-    def get_authorize_url(self, state: str) -> str:
-        """Generate HubSpot OAuth authorization URL"""
-
-        base_url = "https://app.hubspot.com/oauth/authorize"
-        params = {
-            "client_id": os.getenv("HUBSPOT_CLIENT_ID"),
-            "redirect_uri": os.getenv("HUBSPOT_REDIRECT_URI"),
-            "scope": "crm.objects.deals.read crm.schemas.deals.read",
-            "state": state
-        }
-
-        query_string = "&".join([f"{k}={v}" for k, v in params.items()])
-        return f"{base_url}?{query_string}"
-
-    async def exchange_code_for_tokens(
+    async def create_connection(
         self,
-        code: str
-    ) -> Dict:
-        """Exchange authorization code for access/refresh tokens"""
+        user_id: str,
+        access_token: str,
+        account_name: Optional[str] = None
+    ) -> str:
+        """Create a new HubSpot connection with Private App access token"""
 
-        token_url = "https://api.hubapi.com/oauth/v1/token"
+        # Test the token first
+        if not await self._test_token(access_token):
+            raise Exception("Invalid HubSpot access token")
 
-        response = requests.post(
-            token_url,
-            data={
-                "grant_type": "authorization_code",
-                "code": code,
-                "client_id": os.getenv("HUBSPOT_CLIENT_ID"),
-                "client_secret": os.getenv("HUBSPOT_CLIENT_SECRET"),
-                "redirect_uri": os.getenv("HUBSPOT_REDIRECT_URI")
-            }
-        )
+        # Get account info if not provided
+        if not account_name:
+            account_name = await self._get_account_name(access_token)
 
-        if response.status_code != 200:
-            raise Exception(f"Token exchange failed: {response.text}")
+        # Encrypt token
+        encrypted_token = self.encryption.encrypt(access_token)
 
-        data = response.json()
+        # Store in database
+        prisma = Prisma()
+        await prisma.connect()
 
-        # HubSpot tokens expire in 6 hours
-        expires_in = data.get("expires_in", 21600)
+        try:
+            # Check if connection already exists for this user
+            existing = await prisma.crmconnection.find_first(
+                where={
+                    "userId": user_id,
+                    "provider": "hubspot"
+                }
+            )
 
-        return {
-            "access_token": data["access_token"],
-            "refresh_token": data["refresh_token"],
-            "expires_at": datetime.now() + timedelta(seconds=expires_in)
-        }
+            if existing:
+                # Update existing
+                await prisma.crmconnection.update(
+                    where={"id": existing.id},
+                    data={
+                        "accessToken": encrypted_token,
+                        "accountName": account_name,
+                        "isActive": True
+                    }
+                )
+                return existing.id
+            else:
+                # Create new
+                connection = await prisma.crmconnection.create(
+                    data={
+                        "userId": user_id,
+                        "provider": "hubspot",
+                        "accessToken": encrypted_token,
+                        "accountName": account_name
+                    }
+                )
+                return connection.id
 
-    async def refresh_access_token(
-        self,
-        refresh_token: str
-    ) -> Dict:
-        """Refresh an expired access token"""
+        finally:
+            await prisma.disconnect()
 
-        token_url = "https://api.hubapi.com/oauth/v1/token"
+    async def _test_token(self, access_token: str) -> bool:
+        """Test if access token is valid"""
+        try:
+            client = HubSpot(access_token=access_token)
+            # Try to fetch one deal to verify token
+            client.crm.deals.basic_api.get_page(limit=1)
+            return True
+        except Exception as e:
+            print(f"Token test failed: {e}")
+            return False
 
-        response = requests.post(
-            token_url,
-            data={
-                "grant_type": "refresh_token",
-                "refresh_token": refresh_token,
-                "client_id": os.getenv("HUBSPOT_CLIENT_ID"),
-                "client_secret": os.getenv("HUBSPOT_CLIENT_SECRET")
-            }
-        )
-
-        if response.status_code != 200:
-            raise Exception(f"Token refresh failed: {response.text}")
-
-        data = response.json()
-
-        expires_in = data.get("expires_in", 21600)
-
-        return {
-            "access_token": data["access_token"],
-            "refresh_token": data["refresh_token"],
-            "expires_at": datetime.now() + timedelta(seconds=expires_in)
-        }
+    async def _get_account_name(self, access_token: str) -> str:
+        """Get HubSpot account name"""
+        try:
+            client = HubSpot(access_token=access_token)
+            # Get account info
+            account_info = client.auth.oauth.access_tokens_api.get_access_token(access_token)
+            return account_info.hub_domain or "HubSpot"
+        except Exception:
+            return "HubSpot"
 
     async def get_valid_token(
         self,
         connection_id: str
     ) -> str:
-        """Get a valid access token, refreshing if necessary"""
+        """Get access token for a connection"""
 
         prisma = Prisma()
         await prisma.connect()
@@ -113,25 +113,7 @@ class HubSpotService:
             if not connection:
                 raise Exception("Connection not found")
 
-            # Check if token is expired or expiring soon
-            if connection.expiresAt < datetime.now() + timedelta(minutes=5):
-                # Refresh token
-                refresh_token = self.encryption.decrypt(connection.refreshToken)
-                token_data = await self.refresh_access_token(refresh_token)
-
-                # Update in database
-                await prisma.crmconnection.update(
-                    where={"id": connection_id},
-                    data={
-                        "accessToken": self.encryption.encrypt(token_data["access_token"]),
-                        "refreshToken": self.encryption.encrypt(token_data["refresh_token"]),
-                        "expiresAt": token_data["expires_at"]
-                    }
-                )
-
-                return token_data["access_token"]
-
-            # Token still valid
+            # Private app tokens don't expire, just return decrypted token
             return self.encryption.decrypt(connection.accessToken)
 
         finally:
@@ -142,7 +124,7 @@ class HubSpotService:
         connection_id: str,
         limit: int = 1000
     ) -> List[Dict]:
-        """Fetch deals from HubSpot"""
+        """Fetch deals from HubSpot with pagination"""
 
         access_token = await self.get_valid_token(connection_id)
 
@@ -150,41 +132,62 @@ class HubSpotService:
         client = HubSpot(access_token=access_token)
 
         try:
-            # Fetch deals with properties
-            deals_response = client.crm.deals.basic_api.get_page(
-                limit=limit,
-                properties=[
-                    "dealname",
-                    "amount",
-                    "closedate",
-                    "dealstage",
-                    "pipeline",
-                    "hs_object_id",
-                    "createdate",
-                    "hs_lastmodifieddate",
-                    "notes_last_updated",
-                    "hubspot_owner_id"
-                ],
-                archived=False
-            )
-
-            # Normalize to RevTrust format
+            # HubSpot API has a max limit of 100 per request, so we need to paginate
+            page_size = 100
             deals = []
-            for deal in deals_response.results:
-                props = deal.properties
+            after = None
+            total_fetched = 0
 
-                deals.append({
-                    "id": deal.id,
-                    "name": props.get("dealname", "Untitled Deal"),
-                    "amount": float(props.get("amount", 0)) if props.get("amount") else 0,
-                    "close_date": props.get("closedate"),
-                    "stage": props.get("dealstage"),
-                    "pipeline": props.get("pipeline"),
-                    "created_date": props.get("createdate"),
-                    "last_modified_date": props.get("hs_lastmodifieddate"),
-                    "last_activity_date": props.get("notes_last_updated"),
-                    "owner_id": props.get("hubspot_owner_id")
-                })
+            properties = [
+                "dealname",
+                "amount",
+                "closedate",
+                "dealstage",
+                "pipeline",
+                "hs_object_id",
+                "createdate",
+                "hs_lastmodifieddate",
+                "notes_last_updated",
+                "hubspot_owner_id"
+            ]
+
+            while total_fetched < limit:
+                # Calculate how many to fetch in this request
+                current_limit = min(page_size, limit - total_fetched)
+
+                # Fetch deals with properties
+                deals_response = client.crm.deals.basic_api.get_page(
+                    limit=current_limit,
+                    properties=properties,
+                    archived=False,
+                    after=after
+                )
+
+                # Normalize to RevTrust format
+                for deal in deals_response.results:
+                    props = deal.properties
+
+                    deals.append({
+                        "id": deal.id,
+                        "name": props.get("dealname", "Untitled Deal"),
+                        "amount": float(props.get("amount", 0)) if props.get("amount") else 0,
+                        "close_date": props.get("closedate"),
+                        "stage": props.get("dealstage"),
+                        "pipeline": props.get("pipeline"),
+                        "created_date": props.get("createdate"),
+                        "last_modified_date": props.get("hs_lastmodifieddate"),
+                        "last_activity_date": props.get("notes_last_updated"),
+                        "owner_id": props.get("hubspot_owner_id")
+                    })
+
+                total_fetched += len(deals_response.results)
+
+                # Check if there are more pages
+                if hasattr(deals_response, 'paging') and deals_response.paging and hasattr(deals_response.paging, 'next'):
+                    after = deals_response.paging.next.after
+                else:
+                    # No more pages
+                    break
 
             return deals
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -42,9 +42,17 @@ export default function SchedulePage() {
   const [schedules, setSchedules] = useState<ScheduledReview[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     fetchSchedules()
+
+    // Cleanup polling interval on unmount
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current)
+      }
+    }
   }, [])
 
   const fetchSchedules = async () => {
@@ -90,7 +98,27 @@ export default function SchedulePage() {
       )
 
       if (res.ok) {
-        alert("Review started! Check your email/Slack in a few minutes.")
+        alert("Review started! The schedule will refresh automatically when complete.")
+
+        // Clear any existing polling interval
+        if (pollIntervalRef.current) {
+          clearInterval(pollIntervalRef.current)
+        }
+
+        // Poll for updates every 5 seconds for up to 2 minutes
+        let pollCount = 0
+        const maxPolls = 24 // 2 minutes (24 * 5 seconds)
+
+        pollIntervalRef.current = setInterval(async () => {
+          pollCount++
+          await fetchSchedules()
+
+          // Stop polling after max time
+          if (pollCount >= maxPolls && pollIntervalRef.current) {
+            clearInterval(pollIntervalRef.current)
+            pollIntervalRef.current = null
+          }
+        }, 5000)
       }
     } catch (err) {
       alert("Failed to start review")
@@ -269,7 +297,7 @@ export default function SchedulePage() {
                       <div className="flex items-center gap-2">
                         <Calendar className="w-4 h-4 text-slate-400" />
                         <span className="text-slate-600">
-                          Next: {new Date(schedule.next_run_at).toLocaleString()}
+                          Next: {new Date(schedule.next_run_at).toLocaleString('en-US', { timeZone: 'America/New_York' })} EST
                         </span>
                       </div>
                     )}
@@ -325,7 +353,7 @@ export default function SchedulePage() {
                     variant="ghost"
                     onClick={() => router.push(`/schedule/${schedule.id}/history`)}
                   >
-                    Last run: {new Date(schedule.last_run_at).toLocaleString()}
+                    Last run: {new Date(schedule.last_run_at).toLocaleString('en-US', { timeZone: 'America/New_York' })} EST
                     <span className="ml-2">→</span>
                   </Button>
                 </div>

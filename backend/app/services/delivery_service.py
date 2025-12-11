@@ -18,6 +18,89 @@ class DeliveryService:
         self.email_service = get_email_delivery_service()
         self.slack_service = get_slack_delivery_service()
 
+    async def send_no_deals_notification(
+        self,
+        scheduled_review_id: str,
+        review_name: str,
+        crm_provider: str
+    ):
+        """
+        Send notification when no deals are found in CRM
+
+        Args:
+            scheduled_review_id: ID of the scheduled review
+            review_name: Name of the review
+            crm_provider: CRM provider name (salesforce, hubspot, etc.)
+        """
+
+        prisma = Prisma()
+        await prisma.connect()
+
+        try:
+            # Get scheduled review config
+            scheduled_review = await prisma.scheduledreview.find_unique(
+                where={"id": scheduled_review_id}
+            )
+
+            if not scheduled_review:
+                raise Exception("Scheduled review not found")
+
+            # Prepare message
+            message = f"⚠️ No deals were found in the configured CRM ({crm_provider.capitalize()}). Please double-check your connection and ensure there are deals in your pipeline."
+
+            # Parse delivery channels
+            try:
+                if isinstance(scheduled_review.deliveryChannels, str):
+                    delivery_channels = json.loads(scheduled_review.deliveryChannels)
+                else:
+                    delivery_channels = scheduled_review.deliveryChannels or []
+            except:
+                delivery_channels = []
+
+            # Send via email
+            if "email" in delivery_channels and scheduled_review.emailRecipients:
+                print(f"✓ Sending email notification...")
+                await self._send_simple_email(
+                    to_emails=scheduled_review.emailRecipients,
+                    subject=f"{review_name}: No Deals Found",
+                    message=message
+                )
+
+            # Send via Slack
+            if "slack" in delivery_channels and scheduled_review.slackWebhookUrl:
+                print(f"✓ Sending Slack notification...")
+                await self._send_simple_slack(
+                    webhook_url=scheduled_review.slackWebhookUrl,
+                    message=message
+                )
+
+        finally:
+            await prisma.disconnect()
+
+    async def _send_simple_email(
+        self,
+        to_emails: List[str],
+        subject: str,
+        message: str
+    ):
+        """Send a simple email notification"""
+        await self.email_service.send_simple_notification(
+            to_emails=to_emails,
+            subject=subject,
+            message=message
+        )
+
+    async def _send_simple_slack(
+        self,
+        webhook_url: str,
+        message: str
+    ):
+        """Send a simple Slack notification"""
+        await self.slack_service.send_simple_notification(
+            webhook_url=webhook_url,
+            message=message
+        )
+
     async def deliver_review_results(
         self,
         scheduled_review_id: str,

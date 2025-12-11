@@ -281,28 +281,80 @@ async def get_analysis_result(analysis_id: str) -> Dict[str, Any]:
     """
     Get complete analysis results with formatted data for UI.
     Only available after analysis is complete.
+    Checks both in-memory store (manual uploads) and database (scheduled reviews).
     """
-    if analysis_id not in analysis_status_store:
-        raise HTTPException(
-            status_code=404,
-            detail="Analysis not found"
-        )
+    # First, check in-memory store for manual uploads
+    if analysis_id in analysis_status_store:
+        status_data = analysis_status_store[analysis_id]
 
-    status_data = analysis_status_store[analysis_id]
+        if status_data["status"] == "failed":
+            raise HTTPException(
+                status_code=500,
+                detail=f"Analysis failed: {status_data.get('error', 'Unknown error')}"
+            )
 
-    if status_data["status"] == "failed":
-        raise HTTPException(
-            status_code=500,
-            detail=f"Analysis failed: {status_data.get('error', 'Unknown error')}"
-        )
+        if status_data["status"] != "completed":
+            raise HTTPException(
+                status_code=400,
+                detail=f"Analysis not complete. Current status: {status_data['status']}"
+            )
 
-    if status_data["status"] != "completed":
-        raise HTTPException(
-            status_code=400,
-            detail=f"Analysis not complete. Current status: {status_data['status']}"
-        )
+        result = status_data.get("result", {})
+    else:
+        # Not in memory, check database for scheduled review runs
+        prisma = Prisma()
+        await prisma.connect()
 
-    result = status_data.get("result", {})
+        try:
+            # Try to find as a ReviewRun by analysisId
+            review_run = await prisma.reviewrun.find_first(
+                where={"analysisId": analysis_id},
+                include={"scheduledReview": True}
+            )
+
+            # Also try to find by the ReviewRun's own ID
+            if not review_run:
+                review_run = await prisma.reviewrun.find_unique(
+                    where={"id": analysis_id},
+                    include={"scheduledReview": True}
+                )
+
+            if not review_run or review_run.status != "completed":
+                raise HTTPException(
+                    status_code=404,
+                    detail="Analysis not found or not completed"
+                )
+
+            # Build a result structure compatible with manual uploads
+            # For scheduled reviews, we don't have detailed violations stored in DB,
+            # so we'll return a summary-only view
+            result = {
+                "file_info": {
+                    "filename": f"{review_run.scheduledReview.name} (Scheduled)",
+                    "total_rows": review_run.dealsAnalyzed or 0,
+                    "total_columns": 0,
+                    "valid_rows": review_run.dealsAnalyzed or 0,
+                },
+                "analysis": {
+                    "health_score": float(review_run.healthScore or 0),
+                    "total_deals": review_run.dealsAnalyzed or 0,
+                    "deals_with_issues": review_run.issuesFound or 0,
+                    "total_critical": 0,
+                    "total_warnings": 0,
+                    "total_info": 0,
+                },
+                "violations": [],
+                "violations_by_category": {},
+                "violations_by_severity": {},
+            }
+
+            status_data = {
+                "updated_at": review_run.completedAt.isoformat() if review_run.completedAt else review_run.startedAt.isoformat()
+            }
+        finally:
+            await prisma.disconnect()
+
+    result = status_data.get("result", {}) if "result" in status_data else result
 
     # Calculate enhanced health metrics
     total_deals = result.get("analysis", {}).get("total_deals", 0)

@@ -30,6 +30,9 @@ class ReviewJobService:
         await prisma.connect()
 
         try:
+            # Get current server time (EST)
+            current_time = datetime.now()
+
             # Update run status
             await prisma.reviewrun.update(
                 where={"id": run_id},
@@ -60,7 +63,56 @@ class ReviewJobService:
             deals = await self._fetch_deals_from_crm(connection)
 
             if not deals or len(deals) == 0:
-                raise Exception("No deals found in CRM")
+                print("⚠️  No deals found in CRM")
+
+                # Update run status to completed with no deals
+                await prisma.reviewrun.update(
+                    where={"id": run_id},
+                    data={
+                        "status": "completed",
+                        "completedAt": current_time,
+                        "dealsAnalyzed": 0,
+                        "healthScore": 0,
+                        "issuesFound": 0,
+                        "highRiskDeals": 0,
+                        "errorMessage": "No deals found in CRM"
+                    }
+                )
+
+                # Update scheduled review last run time
+                await prisma.scheduledreview.update(
+                    where={"id": scheduled_review_id},
+                    data={"lastRunAt": current_time}
+                )
+
+                # Send notification if delivery channels configured
+                if scheduled_review.deliveryChannels:
+                    print("📧 Sending 'no deals found' notification...")
+                    try:
+                        from app.services.delivery_service import get_delivery_service
+
+                        delivery_service = get_delivery_service()
+                        await delivery_service.send_no_deals_notification(
+                            scheduled_review_id=scheduled_review_id,
+                            review_name=scheduled_review.name,
+                            crm_provider=connection.provider
+                        )
+
+                        print("✅ Notification sent successfully!")
+
+                    except Exception as e:
+                        print(f"⚠️ Notification failed: {e}")
+                        import traceback
+                        traceback.print_exc()
+
+                return {
+                    "status": "success",
+                    "run_id": run_id,
+                    "deals_analyzed": 0,
+                    "health_score": 0,
+                    "issues_found": 0,
+                    "message": "No deals found in CRM"
+                }
 
             print(f"✓ Fetched {len(deals)} deals")
 
@@ -104,7 +156,7 @@ class ReviewJobService:
                 where={"id": run_id},
                 data={
                     "status": "completed",
-                    "completedAt": datetime.now(),
+                    "completedAt": current_time,
                     "dealsAnalyzed": len(deals),
                     "healthScore": health_score,
                     "issuesFound": len(violations),
@@ -115,7 +167,7 @@ class ReviewJobService:
             # Update scheduled review last run time
             await prisma.scheduledreview.update(
                 where={"id": scheduled_review_id},
-                data={"lastRunAt": datetime.now()}
+                data={"lastRunAt": current_time}
             )
 
             print("✅ Review completed successfully!")
@@ -180,12 +232,15 @@ class ReviewJobService:
             print(f"❌ Review failed: {e}")
             traceback.print_exc()
 
+            # Get current server time (EST)
+            current_time = datetime.now()
+
             # Update run status to failed
             await prisma.reviewrun.update(
                 where={"id": run_id},
                 data={
                     "status": "failed",
-                    "completedAt": datetime.now(),
+                    "completedAt": current_time,
                     "errorMessage": str(e)
                 }
             )
