@@ -20,6 +20,7 @@ import {
 } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useAuthenticatedFetch } from "@/hooks/useAuthenticatedFetch"
+import { toast } from "sonner"
 
 interface ScheduledReview {
   id: string
@@ -85,8 +86,9 @@ export default function SchedulePage() {
         }
       )
       fetchSchedules()
+      toast.success(isActive ? "Schedule paused" : "Schedule activated")
     } catch (err) {
-      alert("Failed to update schedule")
+      toast.error("Failed to update schedule")
     }
   }
 
@@ -98,7 +100,7 @@ export default function SchedulePage() {
       )
 
       if (res.ok) {
-        alert("Review started! The schedule will refresh automatically when complete.")
+        toast.success("Review started! The schedule will refresh automatically when complete.")
 
         // Clear any existing polling interval
         if (pollIntervalRef.current) {
@@ -119,9 +121,11 @@ export default function SchedulePage() {
             pollIntervalRef.current = null
           }
         }, 5000)
+      } else {
+        toast.error("Failed to start review")
       }
     } catch (err) {
-      alert("Failed to start review")
+      toast.error("Failed to start review")
     }
   }
 
@@ -134,8 +138,9 @@ export default function SchedulePage() {
         { method: "DELETE" }
       )
       fetchSchedules()
+      toast.success("Schedule deleted")
     } catch (err) {
-      alert("Failed to delete")
+      toast.error("Failed to delete")
     }
   }
 

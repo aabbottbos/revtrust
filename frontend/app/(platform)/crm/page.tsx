@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Loader2, Check, X, RefreshCw } from "lucide-react"
 import { useAuthenticatedFetch } from "@/hooks/useAuthenticatedFetch"
+import { toast } from "sonner"
 
 interface Connection {
   id: string
@@ -75,11 +76,12 @@ function CRMConnectionsContent() {
         throw new Error(error.detail || "Failed to connect HubSpot")
       }
 
-      const data = await res.json()
+      await res.json()
 
       // Clear token and refresh connections
       setHubspotToken("")
       await fetchConnections()
+      toast.success("HubSpot connected successfully!")
 
       // If there's a returnTo URL, redirect there
       if (returnTo) {
@@ -87,7 +89,7 @@ function CRMConnectionsContent() {
       }
     } catch (err: any) {
       console.error("Error:", err)
-      alert(err.message || "Failed to connect HubSpot")
+      toast.error(err.message || "Failed to connect HubSpot")
     } finally {
       setConnecting(null)
     }
@@ -102,13 +104,13 @@ function CRMConnectionsContent() {
       const data = await res.json()
 
       if (data.status === "success") {
-        alert("Connection test successful!")
+        toast.success("Connection test successful!")
         fetchConnections()
       } else {
-        alert("Connection test failed")
+        toast.error("Connection test failed")
       }
     } catch (err) {
-      alert("Connection test failed")
+      toast.error("Connection test failed")
     }
   }
 
@@ -122,7 +124,7 @@ function CRMConnectionsContent() {
       )
       fetchConnections()
     } catch (err) {
-      alert("Failed to delete connection")
+      toast.error("Failed to delete connection")
     }
   }
 

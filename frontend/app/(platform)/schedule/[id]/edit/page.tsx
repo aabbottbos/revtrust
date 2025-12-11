@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox"
 import { ArrowLeft, Save } from "lucide-react"
 import { useAuthenticatedFetch } from "@/hooks/useAuthenticatedFetch"
+import { toast } from "sonner"
 
 interface CRMConnection {
   id: string
@@ -54,7 +55,7 @@ export default function EditSchedulePage() {
       setConnections(activeConnections)
     } catch (err) {
       console.error("Error fetching connections:", err)
-      alert("Failed to load CRM connections. Please refresh the page.")
+      toast.error("Failed to load CRM connections. Please refresh the page.")
     }
   }
 
@@ -101,7 +102,7 @@ export default function EditSchedulePage() {
 
     } catch (err) {
       console.error("Error:", err)
-      alert("Failed to load scheduled review")
+      toast.error("Failed to load scheduled review")
       router.push("/schedule")
     } finally {
       setLoading(false)
@@ -149,22 +150,22 @@ export default function EditSchedulePage() {
   const handleSave = async () => {
     // Validation
     if (!name.trim()) {
-      alert("Please enter a name")
+      toast.error("Please enter a name")
       return
     }
 
     if (!connectionId) {
-      alert("Please select a CRM connection")
+      toast.error("Please select a CRM connection")
       return
     }
 
     if (emailEnabled && !emailRecipients.trim()) {
-      alert("Please enter email recipients")
+      toast.error("Please enter email recipients")
       return
     }
 
     if (slackEnabled && !slackWebhook.trim()) {
-      alert("Please enter Slack webhook URL")
+      toast.error("Please enter Slack webhook URL")
       return
     }
 
@@ -197,13 +198,14 @@ export default function EditSchedulePage() {
       )
 
       if (res.ok) {
+        toast.success("Schedule updated successfully")
         router.push("/schedule")
       } else {
         const error = await res.json()
-        alert(`Error: ${error.detail}`)
+        toast.error(`Error: ${error.detail}`)
       }
     } catch (err) {
-      alert("Failed to update schedule")
+      toast.error("Failed to update schedule")
     } finally {
       setSaving(false)
     }

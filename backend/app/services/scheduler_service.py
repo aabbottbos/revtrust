@@ -91,7 +91,8 @@ class SchedulerService:
             trigger=trigger,
             id=scheduled_review_id,
             args=[scheduled_review_id],
-            replace_existing=True
+            replace_existing=True,
+            misfire_grace_time=3600  # Allow running up to 1 hour late if computer was asleep
         )
 
         print(f"✅ Scheduled review {scheduled_review_id} added")

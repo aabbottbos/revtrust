@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox"
 import { ArrowLeft, Save } from "lucide-react"
 import { useAuthenticatedFetch } from "@/hooks/useAuthenticatedFetch"
+import { toast } from "sonner"
 
 interface CRMConnection {
   id: string
@@ -81,7 +82,7 @@ export default function NewSchedulePage() {
     } catch (err) {
       console.error("Error fetching connections:", err)
       // Show error to user
-      alert("Failed to load CRM connections. Please refresh the page.")
+      toast.error("Failed to load CRM connections. Please refresh the page.")
     } finally {
       setLoading(false)
     }
@@ -111,22 +112,22 @@ export default function NewSchedulePage() {
   const handleSave = async () => {
     // Validation
     if (!name.trim()) {
-      alert("Please enter a name")
+      toast.error("Please enter a name")
       return
     }
 
     if (!connectionId) {
-      alert("Please select a CRM connection")
+      toast.error("Please select a CRM connection")
       return
     }
 
     if (emailEnabled && !emailRecipients.trim()) {
-      alert("Please enter email recipients")
+      toast.error("Please enter email recipients")
       return
     }
 
     if (slackEnabled && !slackWebhook.trim()) {
-      alert("Please enter Slack webhook URL")
+      toast.error("Please enter Slack webhook URL")
       return
     }
 
@@ -160,13 +161,14 @@ export default function NewSchedulePage() {
       )
 
       if (res.ok) {
+        toast.success("Schedule created successfully")
         router.push("/schedule")
       } else {
         const error = await res.json()
-        alert(`Error: ${error.detail}`)
+        toast.error(`Error: ${error.detail}`)
       }
     } catch (err) {
-      alert("Failed to create schedule")
+      toast.error("Failed to create schedule")
     } finally {
       setSaving(false)
     }
