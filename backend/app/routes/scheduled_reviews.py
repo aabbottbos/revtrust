@@ -340,12 +340,15 @@ async def run_review_now(
 ):
     """Manually trigger a scheduled review to run immediately"""
 
+    print(f"🚀 Manual trigger requested for review: {review_id}")
+
     prisma = Prisma()
     await prisma.connect()
 
     try:
         # Get or create user
         user = await get_or_create_user(prisma, user_id, email)
+        print(f"   User: {user.email}")
 
         # Verify ownership
         review = await prisma.scheduledreview.find_first(
@@ -356,7 +359,10 @@ async def run_review_now(
         )
 
         if not review:
+            print(f"❌ Review not found or not owned by user")
             raise HTTPException(404, "Scheduled review not found")
+
+        print(f"   Review: {review.name}")
 
         # Create run record
         run = await prisma.reviewrun.create(
@@ -365,6 +371,7 @@ async def run_review_now(
                 "status": "queued"
             }
         )
+        print(f"✅ Created ReviewRun: {run.id}")
 
         # Queue the job
         from app.jobs.scheduled_review_job import execute_scheduled_review
@@ -376,12 +383,14 @@ async def run_review_now(
         redis_conn = Redis.from_url(redis_url)
         queue = Queue('scheduled_reviews', connection=redis_conn)
 
+        print(f"📤 Queueing job to RQ...")
         job = queue.enqueue(
             execute_scheduled_review,
             review_id,
             run.id,
             job_timeout='30m'
         )
+        print(f"✅ Job queued: {job.id}")
 
         # Update run with job ID
         await prisma.reviewrun.update(
@@ -389,11 +398,19 @@ async def run_review_now(
             data={"jobId": job.id}
         )
 
+        print(f"✅ Manual trigger complete")
+
         return {
             "status": "queued",
             "run_id": run.id,
             "job_id": job.id
         }
+
+    except Exception as e:
+        print(f"❌ Error in run-now endpoint: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
 
     finally:
         await prisma.disconnect()

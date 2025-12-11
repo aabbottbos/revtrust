@@ -2,28 +2,33 @@
 APScheduler service for managing scheduled reviews
 """
 
-from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.jobstores.memory import MemoryJobStore
 from datetime import datetime
 import pytz
 from prisma import Prisma
-from rq import Queue
+from rq import Queue, Retry
 from redis import Redis
 import os
 import asyncio
+import logging
+
+# Enable APScheduler logging
+logging.basicConfig()
+logging.getLogger('apscheduler').setLevel(logging.DEBUG)
 
 
 class SchedulerService:
     """Manage scheduled review jobs with APScheduler"""
 
     def __init__(self):
-        # Setup scheduler
+        # Setup scheduler - use AsyncIOScheduler for FastAPI compatibility
         jobstores = {
             'default': MemoryJobStore()
         }
 
-        self.scheduler = BackgroundScheduler(
+        self.scheduler = AsyncIOScheduler(
             jobstores=jobstores,
             timezone=pytz.utc
         )
@@ -111,7 +116,7 @@ class SchedulerService:
         except Exception as e:
             print(f"⚠️ Could not remove job {scheduled_review_id}: {e}")
 
-    def _trigger_review(self, scheduled_review_id: str):
+    async def _trigger_review(self, scheduled_review_id: str):
         """
         Triggered by APScheduler at the scheduled time
         Creates a ReviewRun and queues the job in RQ
@@ -119,14 +124,9 @@ class SchedulerService:
 
         print(f"⏰ Scheduled review triggered: {scheduled_review_id}")
 
-        # Create ReviewRun record
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
         try:
-            run = loop.run_until_complete(
-                self._create_review_run(scheduled_review_id)
-            )
+            # Create ReviewRun record
+            run = await self._create_review_run(scheduled_review_id)
 
             # Queue the job in RQ
             from app.jobs.scheduled_review_job import execute_scheduled_review
@@ -136,18 +136,18 @@ class SchedulerService:
                 scheduled_review_id,
                 run.id,
                 job_timeout='30m',  # 30 minute timeout
-                retry=3  # Retry up to 3 times on failure
+                retry=Retry(max=3)  # Retry up to 3 times on failure
             )
 
             # Update run with job ID
-            loop.run_until_complete(
-                self._update_run_job_id(run.id, job.id)
-            )
+            await self._update_run_job_id(run.id, job.id)
 
             print(f"✅ Job queued: {job.id}")
 
-        finally:
-            loop.close()
+        except Exception as e:
+            print(f"❌ Error triggering review {scheduled_review_id}: {e}")
+            import traceback
+            traceback.print_exc()
 
     async def _create_review_run(self, scheduled_review_id: str):
         """Create a ReviewRun record"""

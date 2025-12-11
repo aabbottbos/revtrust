@@ -102,7 +102,6 @@ class ReviewJobService:
 
                     except Exception as e:
                         print(f"⚠️ Notification failed: {e}")
-                        import traceback
                         traceback.print_exc()
 
                 return {
