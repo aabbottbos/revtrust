@@ -85,15 +85,26 @@ fi
 echo ""
 echo -e "${YELLOW}Stopping Redis...${NC}"
 
+REDIS_STOPPED=false
+
 if command -v brew >/dev/null 2>&1; then
     if brew services list | grep "^redis" | grep -q started; then
         brew services stop redis >/dev/null 2>&1
-        echo -e "${GREEN}✓ Redis stopped${NC}"
-    else
-        echo -e "${YELLOW}○ Redis not running via Homebrew${NC}"
+        echo -e "${GREEN}✓ Redis stopped (brew service)${NC}"
+        REDIS_STOPPED=true
     fi
-else
-    echo -e "${YELLOW}○ Homebrew not found, skipping Redis stop${NC}"
+fi
+
+# Also check for Redis processes not managed by brew
+REDIS_PIDS=$(pgrep redis-server 2>/dev/null)
+if [ -n "$REDIS_PIDS" ]; then
+    echo "$REDIS_PIDS" | xargs kill -9 2>/dev/null
+    echo -e "${GREEN}✓ Redis stopped (killed processes)${NC}"
+    REDIS_STOPPED=true
+fi
+
+if [ "$REDIS_STOPPED" = false ]; then
+    echo -e "${YELLOW}○ Redis not running${NC}"
 fi
 
 echo ""
