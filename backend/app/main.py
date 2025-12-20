@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request, Response
-from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from contextlib import asynccontextmanager
 import os
 import time
@@ -10,12 +10,61 @@ from app.services.scheduler_service import get_scheduler_service
 
 load_dotenv()
 
+# Parse allowed origins at module level
+allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000")
+allowed_origins_str = allowed_origins_str.strip('"').strip("'")
+ALLOWED_ORIGINS = [origin.strip().strip('"').strip("'") for origin in allowed_origins_str.split(",")]
+print(f"🌐 Raw ALLOWED_ORIGINS env: '{os.getenv('ALLOWED_ORIGINS')}'")
+print(f"🌐 Parsed CORS origins: {ALLOWED_ORIGINS}")
+
+
+class CORSMiddleware(BaseHTTPMiddleware):
+    """Custom CORS middleware that handles preflight and adds headers to all responses."""
+
+    async def dispatch(self, request: Request, call_next):
+        origin = request.headers.get("origin", "")
+
+        # Handle OPTIONS preflight requests immediately
+        if request.method == "OPTIONS":
+            print(f"🔍 OPTIONS preflight: {request.url.path} from origin: {origin}")
+            response = Response(
+                status_code=200,
+                content="",
+            )
+            # Add CORS headers
+            if origin in ALLOWED_ORIGINS or "*" in ALLOWED_ORIGINS:
+                response.headers["Access-Control-Allow-Origin"] = origin
+            elif ALLOWED_ORIGINS:
+                response.headers["Access-Control-Allow-Origin"] = ALLOWED_ORIGINS[0]
+
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD"
+            response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With, Accept, Origin, X-CSRF-Token"
+            response.headers["Access-Control-Max-Age"] = "600"
+            response.headers["Access-Control-Expose-Headers"] = "*"
+            print(f"✅ Returning preflight response with origin: {response.headers.get('Access-Control-Allow-Origin')}")
+            return response
+
+        # For non-OPTIONS requests, process normally then add CORS headers
+        response = await call_next(request)
+
+        # Add CORS headers to all responses
+        if origin in ALLOWED_ORIGINS or "*" in ALLOWED_ORIGINS:
+            response.headers["Access-Control-Allow-Origin"] = origin
+        elif ALLOWED_ORIGINS:
+            response.headers["Access-Control-Allow-Origin"] = ALLOWED_ORIGINS[0]
+
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Expose-Headers"] = "*"
+
+        return response
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
     print("🚀 Starting RevTrust API...")
-    allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000")
-    print(f"📍 ALLOWED_ORIGINS: {allowed_origins_str}")
+    print(f"📍 ALLOWED_ORIGINS: {ALLOWED_ORIGINS}")
 
     # Start scheduler
     print("⏰ Starting scheduler...")
@@ -41,23 +90,8 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS - Parse origins and strip whitespace and quotes
-allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000")
-# Strip quotes from the whole string and from each origin
-allowed_origins_str = allowed_origins_str.strip('"').strip("'")
-allowed_origins = [origin.strip().strip('"').strip("'") for origin in allowed_origins_str.split(",")]
-print(f"🌐 Raw ALLOWED_ORIGINS env: '{os.getenv('ALLOWED_ORIGINS')}'")
-print(f"🌐 Parsed CORS origins: {allowed_origins}")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=allowed_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["*"],
-    max_age=600
-)
+# Add our custom CORS middleware
+app.add_middleware(CORSMiddleware)
 
 # Performance monitoring middleware
 @app.middleware("http")
@@ -79,7 +113,7 @@ async def add_process_time_header(request: Request, call_next):
 
     return response
 
-# Routes - Include all routers FIRST
+# Routes
 app.include_router(health.router, prefix="/api", tags=["Health"])
 app.include_router(analyze.router, prefix="/api", tags=["Analysis"])
 app.include_router(ai_analysis.router, tags=["AI Analysis"])
@@ -94,31 +128,3 @@ app.include_router(output_templates.router, tags=["Output Templates"])
 app.include_router(organizations.router, tags=["Organizations"])
 app.include_router(forecast.router, prefix="/api", tags=["Forecast"])
 app.include_router(crm_write.router, tags=["CRM Write"])
-
-# ⬆️ ROUTERS ABOVE ⬆️
-# ⬇️ OPTIONS HANDLER BELOW ⬇️
-
-# Explicit OPTIONS handler for CORS preflight - MUST BE AFTER ROUTERS
-@app.options("/{full_path:path}")
-async def preflight_handler(request: Request, full_path: str):
-    origin = request.headers.get("origin", "")
-    print(f"🔍 OPTIONS preflight request for: /{full_path}")
-    print(f"🔍 Origin header: '{origin}'")
-    print(f"🔍 Allowed origins: {allowed_origins}")
-
-    # Check if origin is allowed
-    if origin in allowed_origins or "*" in allowed_origins:
-        print(f"✅ Origin matched! Returning CORS headers")
-        return Response(
-            status_code=200,
-            headers={
-                "Access-Control-Allow-Origin": origin,
-                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
-                "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
-                "Access-Control-Allow-Credentials": "true",
-                "Access-Control-Max-Age": "600",
-            }
-        )
-
-    print(f"❌ Origin NOT in allowed list!")
-    return Response(status_code=200)
