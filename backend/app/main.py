@@ -41,10 +41,13 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS - Parse origins and strip whitespace
+# CORS - Parse origins and strip whitespace and quotes
 allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000")
-allowed_origins = [origin.strip() for origin in allowed_origins_str.split(",")]
-print(f"🌐 Configured CORS origins: {allowed_origins}")
+# Strip quotes from the whole string and from each origin
+allowed_origins_str = allowed_origins_str.strip('"').strip("'")
+allowed_origins = [origin.strip().strip('"').strip("'") for origin in allowed_origins_str.split(",")]
+print(f"🌐 Raw ALLOWED_ORIGINS env: '{os.getenv('ALLOWED_ORIGINS')}'")
+print(f"🌐 Parsed CORS origins: {allowed_origins}")
 
 app.add_middleware(
     CORSMiddleware,
@@ -99,9 +102,13 @@ app.include_router(crm_write.router, tags=["CRM Write"])
 @app.options("/{full_path:path}")
 async def preflight_handler(request: Request, full_path: str):
     origin = request.headers.get("origin", "")
+    print(f"🔍 OPTIONS preflight request for: /{full_path}")
+    print(f"🔍 Origin header: '{origin}'")
+    print(f"🔍 Allowed origins: {allowed_origins}")
 
     # Check if origin is allowed
     if origin in allowed_origins or "*" in allowed_origins:
+        print(f"✅ Origin matched! Returning CORS headers")
         return Response(
             status_code=200,
             headers={
@@ -113,4 +120,5 @@ async def preflight_handler(request: Request, full_path: str):
             }
         )
 
+    print(f"❌ Origin NOT in allowed list!")
     return Response(status_code=200)
