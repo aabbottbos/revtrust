@@ -60,6 +60,9 @@ app.add_middleware(
 @app.options("/{full_path:path}")
 async def preflight_handler(request: Request, full_path: str):
     """Handle CORS preflight OPTIONS requests"""
+    print(f"🔍 OPTIONS request received for: /{full_path}")
+    print(f"🔍 Origin header: {request.headers.get('origin')}")
+    
     origin = request.headers.get("origin", "*")
     
     # Check if origin is allowed
@@ -67,6 +70,8 @@ async def preflight_handler(request: Request, full_path: str):
         allowed_origin = origin
     else:
         allowed_origin = allowed_origins[0] if allowed_origins else "*"
+    
+    print(f"🔍 Allowing origin: {allowed_origin}")
     
     return Response(
         status_code=200,
