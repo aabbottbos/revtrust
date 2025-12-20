@@ -56,34 +56,6 @@ app.add_middleware(
     max_age=600
 )
 
-# Explicit OPTIONS handler for CORS preflight
-@app.options("/{full_path:path}")
-async def preflight_handler(request: Request, full_path: str):
-    """Handle CORS preflight OPTIONS requests"""
-    print(f"🔍 OPTIONS request received for: /{full_path}")
-    print(f"🔍 Origin header: {request.headers.get('origin')}")
-    
-    origin = request.headers.get("origin", "*")
-    
-    # Check if origin is allowed
-    if origin in allowed_origins or "*" in allowed_origins:
-        allowed_origin = origin
-    else:
-        allowed_origin = allowed_origins[0] if allowed_origins else "*"
-    
-    print(f"🔍 Allowing origin: {allowed_origin}")
-    
-    return Response(
-        status_code=200,
-        headers={
-            "Access-Control-Allow-Origin": allowed_origin,
-            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
-            "Access-Control-Allow-Headers": "*",
-            "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Max-Age": "600",
-        }
-    )
-
 # Performance monitoring middleware
 @app.middleware("http")
 async def add_process_time_header(request: Request, call_next):
@@ -104,7 +76,7 @@ async def add_process_time_header(request: Request, call_next):
 
     return response
 
-# Routes
+# Routes - Include all routers FIRST
 app.include_router(health.router, prefix="/api", tags=["Health"])
 app.include_router(analyze.router, prefix="/api", tags=["Analysis"])
 app.include_router(ai_analysis.router, tags=["AI Analysis"])
@@ -120,6 +92,9 @@ app.include_router(organizations.router, tags=["Organizations"])
 app.include_router(forecast.router, prefix="/api", tags=["Forecast"])
 app.include_router(crm_write.router, tags=["CRM Write"])
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+# ⬆️ ROUTERS ABOVE ⬆️
+# ⬇️ OPTIONS HANDLER BELOW ⬇️
+
+# Explicit OPTIONS handler for CORS preflight - MUST BE AFTER ROUTERS
+@app.options("/{full_path:path}")
+async def preflight_hand
