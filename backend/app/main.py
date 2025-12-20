@@ -1,11 +1,11 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import os
 import time
 from dotenv import load_dotenv
 
-from app.routes import analyze, health, ai_analysis, stripe_routes, webhooks, feedback, analytics, admin, crm_oauth, scheduled_reviews, output_templates
+from app.routes import analyze, health, ai_analysis, stripe_routes, webhooks, feedback, analytics, admin, crm_oauth, scheduled_reviews, output_templates, organizations, forecast, crm_write
 from app.services.scheduler_service import get_scheduler_service
 
 load_dotenv()
@@ -52,7 +52,32 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=600
 )
+
+# Explicit OPTIONS handler for CORS preflight
+@app.options("/{full_path:path}")
+async def preflight_handler(request: Request, full_path: str):
+    """Handle CORS preflight OPTIONS requests"""
+    origin = request.headers.get("origin", "*")
+    
+    # Check if origin is allowed
+    if origin in allowed_origins or "*" in allowed_origins:
+        allowed_origin = origin
+    else:
+        allowed_origin = allowed_origins[0] if allowed_origins else "*"
+    
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": allowed_origin,
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Max-Age": "600",
+        }
+    )
 
 # Performance monitoring middleware
 @app.middleware("http")
@@ -86,6 +111,9 @@ app.include_router(admin.router, tags=["Admin"])
 app.include_router(crm_oauth.router, tags=["CRM OAuth"])
 app.include_router(scheduled_reviews.router, tags=["Scheduled Reviews"])
 app.include_router(output_templates.router, tags=["Output Templates"])
+app.include_router(organizations.router, tags=["Organizations"])
+app.include_router(forecast.router, prefix="/api", tags=["Forecast"])
+app.include_router(crm_write.router, tags=["CRM Write"])
 
 if __name__ == "__main__":
     import uvicorn

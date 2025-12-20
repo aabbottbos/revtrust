@@ -15,12 +15,15 @@ import {
   Sparkles,
   ArrowRight,
   Lock,
-  Download
+  Download,
+  Wrench,
 } from "lucide-react"
 import { HealthScoreChart } from "@/components/features/HealthScoreChart"
 import { ExportButton } from "@/components/features/ExportButton"
 import { analytics } from "@/lib/analytics"
 import { useAuthenticatedFetch } from "@/hooks/useAuthenticatedFetch"
+import { DealReviewWizard } from "@/components/deals"
+import { useFlaggedDeals } from "@/hooks/useDealReview"
 
 interface IssueCategory {
   category: string
@@ -59,6 +62,10 @@ export default function ResultsPage() {
   const [error, setError] = useState<string | null>(null)
   const [hasAiResults, setHasAiResults] = useState(false)
   const [aiLoading, setAiLoading] = useState(false)
+  const [showWizard, setShowWizard] = useState(false)
+
+  // Fetch flagged deals for the wizard
+  const { deals: flaggedDeals, refetch: refetchFlaggedDeals } = useFlaggedDeals(analysisId)
 
   useEffect(() => {
     fetchResults()
@@ -195,7 +202,18 @@ export default function ResultsPage() {
                 {result.file_name} • Analyzed {new Date(result.analyzed_at).toLocaleDateString()}
               </p>
             </div>
-            <ExportButton analysisId={analysisId} filename={result.file_name} />
+            <div className="flex items-center gap-3">
+              {result.deals_with_issues > 0 && (
+                <Button
+                  onClick={() => setShowWizard(true)}
+                  className="bg-revtrust-blue hover:bg-blue-700"
+                >
+                  <Wrench className="w-4 h-4 mr-2" />
+                  Review & Fix Issues
+                </Button>
+              )}
+              <ExportButton analysisId={analysisId} filename={result.file_name} />
+            </div>
           </div>
 
           {/* Alert Banner */}
@@ -476,6 +494,19 @@ export default function ResultsPage() {
           </Button>
         </div>
       </div>
+
+      {/* Deal Review Wizard */}
+      {flaggedDeals.length > 0 && (
+        <DealReviewWizard
+          open={showWizard}
+          onClose={() => setShowWizard(false)}
+          deals={flaggedDeals}
+          onDealsUpdated={() => {
+            fetchResults()
+            refetchFlaggedDeals()
+          }}
+        />
+      )}
     </div>
   )
 }

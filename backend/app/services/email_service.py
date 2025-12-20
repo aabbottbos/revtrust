@@ -211,3 +211,104 @@ async def send_ai_analysis_complete_email(
     except Exception as e:
         print(f"Email error: {e}")
         return False
+
+
+async def send_invitation_email(
+    to_email: str,
+    org_name: str,
+    inviter_name: str,
+    invite_token: str,
+    role: str = "member"
+):
+    """Send organization invitation email"""
+
+    if not RESEND_API_KEY:
+        print("⚠️  RESEND_API_KEY not configured, skipping email")
+        return
+
+    invite_url = f"{FRONTEND_URL}/invite?token={invite_token}"
+    subject = f"You've been invited to join {org_name} on RevTrust"
+
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f8fafc;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+          <!-- Header -->
+          <div style="text-align: center; margin-bottom: 40px;">
+            <h1 style="color: #2563EB; font-size: 28px; margin: 0;">RevTrust</h1>
+            <p style="color: #64748b; margin: 8px 0 0 0;">Team Invitation</p>
+          </div>
+
+          <!-- Main Card -->
+          <div style="background: white; border-radius: 12px; padding: 32px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);">
+            <h2 style="color: #0f172a; font-size: 24px; margin: 0 0 16px 0;">
+              You're Invited! 🎉
+            </h2>
+
+            <p style="color: #475569; font-size: 16px; line-height: 1.5; margin: 0 0 24px 0;">
+              <strong>{inviter_name}</strong> has invited you to join <strong>{org_name}</strong> on RevTrust as a <strong>{role}</strong>.
+            </p>
+
+            <p style="color: #475569; font-size: 16px; line-height: 1.5; margin: 0 0 24px 0;">
+              RevTrust helps sales teams analyze their pipeline health and improve forecast accuracy.
+            </p>
+
+            <!-- CTA Button -->
+            <div style="text-align: center; margin-bottom: 24px;">
+              <a href="{invite_url}"
+                 style="display: inline-block; background: #2563EB; color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">
+                Accept Invitation
+              </a>
+            </div>
+
+            <p style="color: #94a3b8; font-size: 14px; text-align: center;">
+              This invitation will expire in 7 days.
+            </p>
+          </div>
+
+          <!-- Footer -->
+          <div style="text-align: center; margin-top: 32px; color: #94a3b8; font-size: 14px;">
+            <p style="margin: 0 0 8px 0;">
+              If you didn't expect this invitation, you can safely ignore this email.
+            </p>
+            <p style="margin: 0;">
+              © 2024 RevTrust. All rights reserved.
+            </p>
+          </div>
+        </div>
+      </body>
+    </html>
+    """
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "https://api.resend.com/emails",
+                headers={
+                    "Authorization": f"Bearer {RESEND_API_KEY}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "from": FROM_EMAIL,
+                    "to": [to_email],
+                    "subject": subject,
+                    "html": html
+                },
+                timeout=10.0
+            )
+
+            if response.status_code == 200:
+                print(f"✓ Invitation email sent to {to_email}")
+                return True
+            else:
+                print(f"Email error: {response.status_code} - {response.text}")
+                return False
+
+    except Exception as e:
+        print(f"Email error: {e}")
+        return False
