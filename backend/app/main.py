@@ -97,4 +97,20 @@ app.include_router(crm_write.router, tags=["CRM Write"])
 
 # Explicit OPTIONS handler for CORS preflight - MUST BE AFTER ROUTERS
 @app.options("/{full_path:path}")
-async def preflight_hand
+async def preflight_handler(request: Request, full_path: str):
+    origin = request.headers.get("origin", "")
+
+    # Check if origin is allowed
+    if origin in allowed_origins or "*" in allowed_origins:
+        return Response(
+            status_code=200,
+            headers={
+                "Access-Control-Allow-Origin": origin,
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+                "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
+                "Access-Control-Allow-Credentials": "true",
+                "Access-Control-Max-Age": "600",
+            }
+        )
+
+    return Response(status_code=200)
