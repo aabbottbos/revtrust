@@ -14,8 +14,8 @@ import os
 import asyncio
 import logging
 
-# Enable APScheduler logging
-logging.basicConfig()
+# Configure logger
+logger = logging.getLogger(__name__)
 logging.getLogger('apscheduler').setLevel(logging.DEBUG)
 
 
@@ -45,14 +45,14 @@ class SchedulerService:
         if not self.is_running:
             self.scheduler.start()
             self.is_running = True
-            print("✅ Scheduler started")
+            logger.info("✅ Scheduler started")
 
     def stop(self):
         """Stop the scheduler"""
         if self.is_running:
             self.scheduler.shutdown()
             self.is_running = False
-            print("⏸️ Scheduler stopped")
+            logger.info("⏸️ Scheduler stopped")
 
     def add_scheduled_review(
         self,
@@ -100,9 +100,11 @@ class SchedulerService:
             misfire_grace_time=3600  # Allow running up to 1 hour late if computer was asleep
         )
 
-        print(f"✅ Scheduled review {scheduled_review_id} added")
-        print(f"   Schedule: {schedule}")
-        print(f"   Timezone: {timezone}")
+        )
+
+        logger.info(f"✅ Scheduled review {scheduled_review_id} added")
+        logger.info(f"   Schedule: {schedule}")
+        logger.info(f"   Timezone: {timezone}")
 
         # Calculate next run time
         next_run = self.scheduler.get_job(scheduled_review_id).next_run_time
@@ -112,9 +114,9 @@ class SchedulerService:
         """Remove a scheduled review from the scheduler"""
         try:
             self.scheduler.remove_job(scheduled_review_id)
-            print(f"🗑️ Removed scheduled review {scheduled_review_id}")
+            logger.info(f"🗑️ Removed scheduled review {scheduled_review_id}")
         except Exception as e:
-            print(f"⚠️ Could not remove job {scheduled_review_id}: {e}")
+            logger.warning(f"⚠️ Could not remove job {scheduled_review_id}: {e}")
 
     async def _trigger_review(self, scheduled_review_id: str):
         """
@@ -122,7 +124,7 @@ class SchedulerService:
         Creates a ReviewRun and queues the job in RQ
         """
 
-        print(f"⏰ Scheduled review triggered: {scheduled_review_id}")
+        logger.info(f"⏰ Scheduled review triggered: {scheduled_review_id}")
 
         try:
             # Create ReviewRun record
@@ -142,12 +144,12 @@ class SchedulerService:
             # Update run with job ID
             await self._update_run_job_id(run.id, job.id)
 
-            print(f"✅ Job queued: {job.id}")
+            await self._update_run_job_id(run.id, job.id)
+
+            logger.info(f"✅ Job queued: {job.id}")
 
         except Exception as e:
-            print(f"❌ Error triggering review {scheduled_review_id}: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.error(f"❌ Error triggering review {scheduled_review_id}: {e}", exc_info=True)
 
     async def _create_review_run(self, scheduled_review_id: str):
         """Create a ReviewRun record"""
@@ -191,7 +193,7 @@ class SchedulerService:
                 where={"isActive": True}
             )
 
-            print(f"📅 Syncing {len(scheduled_reviews)} scheduled reviews...")
+            logger.info(f"📅 Syncing {len(scheduled_reviews)} scheduled reviews...")
 
             for review in scheduled_reviews:
                 try:
@@ -208,9 +210,9 @@ class SchedulerService:
                     )
 
                 except Exception as e:
-                    print(f"⚠️ Failed to sync {review.id}: {e}")
+                    logger.error(f"⚠️ Failed to sync {review.id}: {e}", exc_info=True)
 
-            print("✅ Scheduler sync complete")
+            logger.info("✅ Scheduler sync complete")
 
         finally:
             await prisma.disconnect()

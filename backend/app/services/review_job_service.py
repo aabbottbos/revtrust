@@ -10,6 +10,9 @@ from app.services.hubspot_service import get_hubspot_service
 from app.services.ai_service import get_ai_service
 from app.utils.business_rules_engine import BusinessRulesEngine
 import traceback
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ReviewJobService:
@@ -54,16 +57,19 @@ class ReviewJobService:
             connection = scheduled_review.crmConnection
             user = scheduled_review.user
 
-            print(f"📊 Starting review: {scheduled_review.name}")
-            print(f"   User: {user.email}")
-            print(f"   CRM: {connection.provider}")
+            connection = scheduled_review.crmConnection
+            user = scheduled_review.user
+
+            logger.info(f"📊 Starting review: {scheduled_review.name}")
+            logger.info(f"   User: {user.email}")
+            logger.info(f"   CRM: {connection.provider}")
 
             # Step 1: Fetch deals from CRM
-            print("🔄 Fetching deals from CRM...")
+            logger.info("🔄 Fetching deals from CRM...")
             deals = await self._fetch_deals_from_crm(connection)
 
             if not deals or len(deals) == 0:
-                print("⚠️  No deals found in CRM")
+                logger.warning("⚠️  No deals found in CRM")
 
                 # Update run status to completed with no deals
                 await prisma.reviewrun.update(
@@ -87,7 +93,7 @@ class ReviewJobService:
 
                 # Send notification if delivery channels configured
                 if scheduled_review.deliveryChannels:
-                    print("📧 Sending 'no deals found' notification...")
+                    logger.info("📧 Sending 'no deals found' notification...")
                     try:
                         from app.services.delivery_service import get_delivery_service
 
@@ -98,11 +104,12 @@ class ReviewJobService:
                             crm_provider=connection.provider
                         )
 
-                        print("✅ Notification sent successfully!")
+                        )
+
+                        logger.info("✅ Notification sent successfully!")
 
                     except Exception as e:
-                        print(f"⚠️ Notification failed: {e}")
-                        traceback.print_exc()
+                        logger.error(f"⚠️ Notification failed: {e}", exc_info=True)
 
                 return {
                     "status": "success",
@@ -113,17 +120,17 @@ class ReviewJobService:
                     "message": "No deals found in CRM"
                 }
 
-            print(f"✓ Fetched {len(deals)} deals")
+            logger.info(f"✓ Fetched {len(deals)} deals")
 
             # Step 2: Run business rules analysis
-            print("🔍 Running business rules analysis...")
+            logger.info("🔍 Running business rules analysis...")
             analysis_result = self.rules_engine.analyze_deals(deals)
 
             health_score = int(analysis_result["health_score"])
             violations = analysis_result["violations"]
 
-            print(f"✓ Analysis complete - Health Score: {health_score}/100")
-            print(f"✓ Found {len(violations)} issues")
+            logger.info(f"✓ Analysis complete - Health Score: {health_score}/100")
+            logger.info(f"✓ Found {len(violations)} issues")
 
             # Group violations by deal ID
             violations_by_deal = {}
@@ -135,17 +142,17 @@ class ReviewJobService:
                     violations_by_deal[deal_id].append(violation)
 
             # Step 2.5: Run AI analysis on deals
-            print("🤖 Running AI analysis on deals...")
+            logger.info("🤖 Running AI analysis on deals...")
             ai_results = await self.ai_service.analyze_pipeline(deals, violations_by_deal)
-            print(f"✓ AI analysis complete - Analyzed {len(ai_results)} deals")
+            logger.info(f"✓ AI analysis complete - Analyzed {len(ai_results)} deals")
 
             # Step 2.6: Generate pipeline summary
-            print("📊 Generating pipeline summary...")
+            logger.info("📊 Generating pipeline summary...")
             pipeline_summary = await self.ai_service.generate_pipeline_summary(deals, ai_results)
-            print(f"✓ Pipeline summary generated - Health: {pipeline_summary.get('overall_health', 'unknown')}")
+            logger.info(f"✓ Pipeline summary generated - Health: {pipeline_summary.get('overall_health', 'unknown')}")
 
             # Step 3: Store results
-            print("💾 Storing results...")
+            logger.info("💾 Storing results...")
 
             # Count high risk deals
             high_risk_count = sum(1 for v in violations if v.get("severity") == "CRITICAL")
@@ -169,11 +176,11 @@ class ReviewJobService:
                 data={"lastRunAt": current_time}
             )
 
-            print("✅ Review completed successfully!")
+            logger.info("✅ Review completed successfully!")
 
             # Step 4: Deliver results (if delivery channels configured)
             if scheduled_review.deliveryChannels:
-                print("📧 Delivering results...")
+                logger.info("📧 Delivering results...")
                 try:
                     from app.services.delivery_service import get_delivery_service
 
@@ -212,11 +219,10 @@ class ReviewJobService:
                         }
                     )
 
-                    print("✅ Results delivered successfully!")
+                    logger.info("✅ Results delivered successfully!")
 
                 except Exception as e:
-                    print(f"⚠️ Delivery failed: {e}")
-                    traceback.print_exc()
+                    logger.error(f"⚠️ Delivery failed: {e}", exc_info=True)
                     # Continue - don't fail the job if delivery fails
 
             return {
@@ -228,8 +234,7 @@ class ReviewJobService:
             }
 
         except Exception as e:
-            print(f"❌ Review failed: {e}")
-            traceback.print_exc()
+            logger.error(f"❌ Review failed: {e}", exc_info=True)
 
             # Get current server time (EST)
             current_time = datetime.now()

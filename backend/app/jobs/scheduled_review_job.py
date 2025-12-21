@@ -4,6 +4,9 @@ RQ job wrapper for scheduled reviews
 
 import asyncio
 from app.services.review_job_service import get_review_job_service
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def execute_scheduled_review(scheduled_review_id: str, run_id: str):
@@ -12,9 +15,12 @@ def execute_scheduled_review(scheduled_review_id: str, run_id: str):
     This is the function that gets queued and executed by workers
     """
 
-    print(f"🚀 Starting scheduled review job")
-    print(f"   Review ID: {scheduled_review_id}")
-    print(f"   Run ID: {run_id}")
+    this is the function that gets queued and executed by workers
+    """
+
+    logger.info(f"🚀 Starting scheduled review job")
+    logger.info(f"   Review ID: {scheduled_review_id}")
+    logger.info(f"   Run ID: {run_id}")
 
     # Create event loop and run async job
     loop = asyncio.new_event_loop()
@@ -26,11 +32,14 @@ def execute_scheduled_review(scheduled_review_id: str, run_id: str):
             service.execute_review(scheduled_review_id, run_id)
         )
 
-        print(f"✅ Job completed: {result['status']}")
+            service.execute_review(scheduled_review_id, run_id)
+        )
+
+        logger.info(f"✅ Job completed: {result['status']}")
         return result
 
     except Exception as e:
-        print(f"❌ Job failed: {e}")
+        logger.error(f"❌ Job failed: {e}", exc_info=True)
         raise
 
     finally:
