@@ -130,8 +130,6 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 async def general_exception_handler(request: Request, exc: Exception):
     """Handle all other exceptions with CORS headers"""
     origin = request.headers.get("origin", "")
-    """Handle all other exceptions with CORS headers"""
-    origin = request.headers.get("origin", "")
     logger.error(f"❌ Unhandled exception: {exc}", exc_info=True)
     response = JSONResponse(
         status_code=500,
