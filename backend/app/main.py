@@ -1,8 +1,10 @@
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Request, Response, HTTPException
+from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from contextlib import asynccontextmanager
 import os
 import time
+import traceback
 from dotenv import load_dotenv
 
 from app.routes import analyze, health, ai_analysis, stripe_routes, webhooks, feedback, analytics, admin, crm_oauth, scheduled_reviews, output_templates, organizations, forecast, crm_write
@@ -92,6 +94,43 @@ app = FastAPI(
 
 # Add our custom CORS middleware
 app.add_middleware(CORSMiddleware)
+
+
+def add_cors_headers(response: Response, origin: str):
+    """Helper to add CORS headers to a response"""
+    if origin in ALLOWED_ORIGINS or "*" in ALLOWED_ORIGINS:
+        response.headers["Access-Control-Allow-Origin"] = origin
+    elif ALLOWED_ORIGINS:
+        response.headers["Access-Control-Allow-Origin"] = ALLOWED_ORIGINS[0]
+    response.headers["Access-Control-Allow-Credentials"] = "true"
+    response.headers["Access-Control-Expose-Headers"] = "*"
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """Handle HTTP exceptions with CORS headers"""
+    origin = request.headers.get("origin", "")
+    response = JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail}
+    )
+    add_cors_headers(response, origin)
+    return response
+
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    """Handle all other exceptions with CORS headers"""
+    origin = request.headers.get("origin", "")
+    print(f"❌ Unhandled exception: {exc}")
+    print(traceback.format_exc())
+    response = JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"}
+    )
+    add_cors_headers(response, origin)
+    return response
+
 
 # Performance monitoring middleware
 @app.middleware("http")
