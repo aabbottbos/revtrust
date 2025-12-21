@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 import os
 import time
 import traceback
+import logging
 from dotenv import load_dotenv
 
 from app.routes import analyze, health, ai_analysis, stripe_routes, webhooks, feedback, analytics, admin, crm_oauth, scheduled_reviews, output_templates, organizations, forecast, crm_write
@@ -22,7 +23,6 @@ logger = logging.getLogger(__name__)
 # Parse allowed origins at module level
 allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000")
 allowed_origins_str = allowed_origins_str.strip('"').strip("'")
-ALLOWED_ORIGINS = [origin.strip().strip('"').strip("'") for origin in allowed_origins_str.split(",")]
 ALLOWED_ORIGINS = [origin.strip().strip('"').strip("'") for origin in allowed_origins_str.split(",")]
 logger.info(f"🌐 Raw ALLOWED_ORIGINS env: '{os.getenv('ALLOWED_ORIGINS')}'")
 logger.info(f"🌐 Parsed CORS origins: {ALLOWED_ORIGINS}")
