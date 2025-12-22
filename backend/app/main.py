@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 from fastapi.middleware.cors import CORSMiddleware
 
-# ... (logging config remains) ...
+
 
 # Parse allowed origins at module level
 allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000")
