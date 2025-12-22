@@ -373,7 +373,7 @@ async def run_review_now(
             data={
                 "scheduledReviewId": review_id,
                 "status": "queued"
-                "status": "queued"
+
             }
         )
         logger.info(f"✅ Created ReviewRun: {run.id}")
@@ -411,7 +411,7 @@ async def run_review_now(
             "job_id": job.id
         }
 
-        }
+
 
     except Exception as e:
         logger.error(f"❌ Error in run-now endpoint: {e}", exc_info=True)

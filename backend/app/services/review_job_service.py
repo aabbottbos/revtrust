@@ -104,7 +104,7 @@ class ReviewJobService:
                             crm_provider=connection.provider
                         )
 
-                        )
+
 
                         logger.info("✅ Notification sent successfully!")
 
