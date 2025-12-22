@@ -15,7 +15,6 @@ def execute_scheduled_review(scheduled_review_id: str, run_id: str):
     This is the function that gets queued and executed by workers
     """
 
-    """
 
     logger.info(f"🚀 Starting scheduled review job")
     logger.info(f"   Review ID: {scheduled_review_id}")
@@ -30,6 +29,7 @@ def execute_scheduled_review(scheduled_review_id: str, run_id: str):
         result = loop.run_until_complete(
             service.execute_review(scheduled_review_id, run_id)
         )
+
 
         logger.info(f"✅ Job completed: {result['status']}")
         return result

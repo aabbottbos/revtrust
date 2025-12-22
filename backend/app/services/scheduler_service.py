@@ -100,7 +100,7 @@ class SchedulerService:
             misfire_grace_time=3600  # Allow running up to 1 hour late if computer was asleep
         )
 
-        )
+
 
         logger.info(f"✅ Scheduled review {scheduled_review_id} added")
         logger.info(f"   Schedule: {schedule}")
@@ -144,7 +144,7 @@ class SchedulerService:
             # Update run with job ID
             await self._update_run_job_id(run.id, job.id)
 
-            await self._update_run_job_id(run.id, job.id)
+
 
             logger.info(f"✅ Job queued: {job.id}")
 
