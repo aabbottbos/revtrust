@@ -20,54 +20,16 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+from fastapi.middleware.cors import CORSMiddleware
+
+# ... (logging config remains) ...
+
 # Parse allowed origins at module level
 allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000")
 allowed_origins_str = allowed_origins_str.strip('"').strip("'")
 ALLOWED_ORIGINS = [origin.strip().strip('"').strip("'") for origin in allowed_origins_str.split(",")]
 logger.info(f"🌐 Raw ALLOWED_ORIGINS env: '{os.getenv('ALLOWED_ORIGINS')}'")
 logger.info(f"🌐 Parsed CORS origins: {ALLOWED_ORIGINS}")
-
-
-class CORSMiddleware(BaseHTTPMiddleware):
-    """Custom CORS middleware that handles preflight and adds headers to all responses."""
-
-    async def dispatch(self, request: Request, call_next):
-        origin = request.headers.get("origin", "")
-
-        # Handle OPTIONS preflight requests immediately
-        if request.method == "OPTIONS":
-            logger.debug(f"🔍 OPTIONS preflight: {request.url.path} from origin: {origin}")
-            response = Response(
-                status_code=200,
-                content="",
-            )
-            # Add CORS headers
-            if origin in ALLOWED_ORIGINS or "*" in ALLOWED_ORIGINS:
-                response.headers["Access-Control-Allow-Origin"] = origin
-            elif ALLOWED_ORIGINS:
-                response.headers["Access-Control-Allow-Origin"] = ALLOWED_ORIGINS[0]
-
-            response.headers["Access-Control-Allow-Credentials"] = "true"
-            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD"
-            response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With, Accept, Origin, X-CSRF-Token"
-            response.headers["Access-Control-Max-Age"] = "600"
-            response.headers["Access-Control-Expose-Headers"] = "*"
-            logger.debug(f"✅ Returning preflight response with origin: {response.headers.get('Access-Control-Allow-Origin')}")
-            return response
-
-        # For non-OPTIONS requests, process normally then add CORS headers
-        response = await call_next(request)
-
-        # Add CORS headers to all responses
-        if origin in ALLOWED_ORIGINS or "*" in ALLOWED_ORIGINS:
-            response.headers["Access-Control-Allow-Origin"] = origin
-        elif ALLOWED_ORIGINS:
-            response.headers["Access-Control-Allow-Origin"] = ALLOWED_ORIGINS[0]
-
-        response.headers["Access-Control-Allow-Credentials"] = "true"
-        response.headers["Access-Control-Expose-Headers"] = "*"
-
-        return response
 
 
 @asynccontextmanager
@@ -100,43 +62,35 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Add our custom CORS middleware
-app.add_middleware(CORSMiddleware)
-
-
-def add_cors_headers(response: Response, origin: str):
-    """Helper to add CORS headers to a response"""
-    if origin in ALLOWED_ORIGINS or "*" in ALLOWED_ORIGINS:
-        response.headers["Access-Control-Allow-Origin"] = origin
-    elif ALLOWED_ORIGINS:
-        response.headers["Access-Control-Allow-Origin"] = ALLOWED_ORIGINS[0]
-    response.headers["Access-Control-Allow-Credentials"] = "true"
-    response.headers["Access-Control-Expose-Headers"] = "*"
+# Add Standard CORS Middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=600,
+)
 
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
-    """Handle HTTP exceptions with CORS headers"""
-    origin = request.headers.get("origin", "")
-    response = JSONResponse(
+    """Handle HTTP exceptions"""
+    return JSONResponse(
         status_code=exc.status_code,
         content={"detail": exc.detail}
     )
-    add_cors_headers(response, origin)
-    return response
 
 
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception):
-    """Handle all other exceptions with CORS headers"""
-    origin = request.headers.get("origin", "")
+    """Handle all other exceptions"""
     logger.error(f"❌ Unhandled exception: {exc}", exc_info=True)
-    response = JSONResponse(
+    return JSONResponse(
         status_code=500,
         content={"detail": "Internal server error"}
     )
-    add_cors_headers(response, origin)
-    return response
 
 
 # Performance monitoring middleware
