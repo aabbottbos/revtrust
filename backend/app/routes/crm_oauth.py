@@ -83,7 +83,7 @@ async def salesforce_callback(
             if not user:
                 # User doesn't exist yet - create them
                 # For anonymous user, use a placeholder email
-                email = "anonymous@revtrust.dev" if clerk_id == "anonymous_user" else f"{clerk_id}@clerk.user"
+                email = "anonymous@revtrust.net" if clerk_id == "anonymous_user" else f"{clerk_id}@clerk.user"
                 user = await prisma.user.create(
                     data={
                         "clerkId": clerk_id,

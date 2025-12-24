@@ -9,7 +9,7 @@
       "type": "oauth",
       "redirectUrls": [
         "http://localhost:3000/api/oauth/hubspot/callback",
-        "https://api.revtrust.net/oauth/callback"
+        "https://revtrust.net/api/oauth/hubspot/callback"
       ],
       "requiredScopes": [
         "oauth",
