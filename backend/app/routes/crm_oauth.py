@@ -145,30 +145,68 @@ async def salesforce_callback(
         )
 
 
-# ============= HUBSPOT (Private App) =============
+# ============= HUBSPOT (OAuth) =============
 
-@router.post("/hubspot/connect")
-async def hubspot_connect(
-    request: dict,
+@router.get("/hubspot/authorize")
+async def hubspot_authorize(
     user_id: str = Depends(get_current_user_id)
 ):
-    """Connect HubSpot using Private App access token"""
+    """Initiate HubSpot OAuth flow"""
 
-    access_token = request.get("access_token")
-    if not access_token:
-        raise HTTPException(400, "access_token is required")
+    # Generate and store state
+    state = secrets.token_urlsafe(32)
+
+    # Get authorization URL
+    hs_service = get_hubspot_service()
+    auth_url = hs_service.get_authorize_url(state)
+
+    # Store state for callback verification
+    oauth_state_store[state] = {
+        "user_id": user_id,
+        "provider": "hubspot",
+        "created_at": datetime.now()
+    }
+
+    return {"authorization_url": auth_url}
+
+
+@router.get("/hubspot/callback")
+async def hubspot_callback(
+    code: str = Query(...),
+    state: str = Query(...)
+):
+    """Handle HubSpot OAuth callback"""
+
+    # Verify state
+    if state not in oauth_state_store:
+        raise HTTPException(400, "Invalid state parameter")
+
+    state_data = oauth_state_store.pop(state)
+    user_id = state_data["user_id"]
 
     try:
-        # Get database user
+        # Exchange code for tokens
+        hs_service = get_hubspot_service()
+        token_data = await hs_service.exchange_code_for_tokens(code)
+
+        # Get account info
+        account_info = await hs_service.get_account_info(token_data["access_token"])
+
+        # Encrypt tokens
+        encryption = get_encryption_service()
+        encrypted_access = encryption.encrypt(token_data["access_token"])
+        encrypted_refresh = encryption.encrypt(token_data["refresh_token"])
+
+        # Store in database
         prisma = Prisma()
         await prisma.connect()
 
         try:
+            # Get or create user
             clerk_id = user_id
             user = await prisma.user.find_unique(where={"clerkId": clerk_id})
 
             if not user:
-                # Create user if doesn't exist
                 email = "anonymous@revtrust.dev" if clerk_id == "anonymous_user" else f"{clerk_id}@clerk.user"
                 user = await prisma.user.create(
                     data={
@@ -177,25 +215,60 @@ async def hubspot_connect(
                     }
                 )
 
-            # Create connection
-            hs_service = get_hubspot_service()
-            connection_id = await hs_service.create_connection(
-                user_id=user.id,
-                access_token=access_token
+            user_db_id = user.id
+
+            # Check if connection already exists
+            existing = await prisma.crmconnection.find_first(
+                where={
+                    "userId": user_db_id,
+                    "provider": "hubspot"
+                }
             )
 
-            return {
-                "status": "success",
-                "connection_id": connection_id,
-                "provider": "hubspot"
-            }
+            if existing:
+                # Update existing
+                await prisma.crmconnection.update(
+                    where={"id": existing.id},
+                    data={
+                        "accessToken": encrypted_access,
+                        "refreshToken": encrypted_refresh,
+                        "expiresAt": token_data["expires_at"],
+                        "accountName": account_info.get("hub_domain", "HubSpot"),
+                        "isActive": True
+                    }
+                )
+                connection_id = existing.id
+            else:
+                # Create new
+                connection = await prisma.crmconnection.create(
+                    data={
+                        "userId": user_db_id,
+                        "provider": "hubspot",
+                        "accessToken": encrypted_access,
+                        "refreshToken": encrypted_refresh,
+                        "expiresAt": token_data["expires_at"],
+                        "accountName": account_info.get("hub_domain", "HubSpot")
+                    }
+                )
+                connection_id = connection.id
 
         finally:
             await prisma.disconnect()
 
+        # Redirect to frontend success page
+        import os
+        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+        return RedirectResponse(
+            url=f"{frontend_url}/crm/connected?provider=hubspot&connection_id={connection_id}"
+        )
+
     except Exception as e:
-        print(f"HubSpot connection error: {e}")
-        raise HTTPException(400, str(e))
+        print(f"HubSpot OAuth error: {e}")
+        import os
+        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+        return RedirectResponse(
+            url=f"{frontend_url}/crm/error?message={str(e)}"
+        )
 
 
 # ============= MANAGEMENT =============
@@ -213,12 +286,19 @@ async def list_connections(
         # Look up user by clerkId to get database ID
         user = await prisma.user.find_unique(where={"clerkId": user_id})
         if not user:
+            print(f"📭 No user found for clerkId: {user_id}")
             return {"connections": []}
+
+        print(f"👤 Found user {user.id} for clerkId: {user_id}")
 
         # Query connections using database userId
         connections = await prisma.crmconnection.find_many(
             where={"userId": user.id}
         )
+
+        print(f"🔗 Found {len(connections)} connections for user {user.id}")
+        for conn in connections:
+            print(f"   - {conn.provider}: {conn.accountName} (active={conn.isActive})")
 
         return {
             "connections": [

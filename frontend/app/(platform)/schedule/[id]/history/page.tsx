@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, CheckCircle, XCircle, Clock, ExternalLink } from "lucide-react"
 import { useAuthenticatedFetch } from "@/hooks/useAuthenticatedFetch"
+import { formatToEST } from "@/lib/utils"
 
 interface ReviewRun {
   id: string
@@ -101,7 +102,7 @@ export default function RunHistoryPage() {
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       <span className="font-semibold">
-                        {new Date(run.started_at).toLocaleString()}
+                        {formatToEST(run.started_at)}
                       </span>
                       {getStatusBadge(run.status)}
                     </div>

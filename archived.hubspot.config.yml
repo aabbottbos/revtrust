@@ -1,0 +1,14 @@
+defaultPortal: rev-trust
+portals:
+  - name: rev-trust
+    env: prod
+    authType: personalaccesskey
+    auth:
+      tokenInfo:
+        accessToken: >-
+          CPKy0eS0MxIgQlNQMl8kQEwrAhMACAkCFBwBAgEQAwoBAgMHGygCeAEYkNPMdCC04_ooKO7pDDIUE0caLJ6PlIMNUdsla3R7N5_JHFg6WEJTUDJfJEBMKwImABATBgAGAHEAKwBIAAEAAQABAAgAAQAGAAIAFAAEABgABAABAAEAAQABAAEABAABAAUAAQASAAkAAwABADEAAQBXABcAAQBCAFQBAQBCFIE48V-SDHe_t36q1jN7cC0hXkjdSgNuYTJSAFoAYAFotOP6KHAAeAA
+        expiresAt: '2025-12-23T18:59:09.335Z'
+    accountType: STANDARD
+    personalAccessKey: >-
+      CiRuYTItMmFiMy0wN2IxLTQ5YTYtOGJjNC0zZTgzMzZjYTkwYjAQkNPMdBi04_ooKhkABeaRgvVpxTTFtUvwRlZQCMQ6272RZ67rSgNuYTI
+    portalId: 244525456

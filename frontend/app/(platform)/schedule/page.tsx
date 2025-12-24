@@ -21,6 +21,7 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useAuthenticatedFetch } from "@/hooks/useAuthenticatedFetch"
 import { toast } from "sonner"
+import { formatToEST } from "@/lib/utils"
 
 interface ScheduledReview {
   id: string
@@ -298,11 +299,11 @@ export default function SchedulePage() {
                     </div>
 
                     {/* Next Run */}
-                    {schedule.next_run_at && (
+                    {schedule.next_run_at && formatToEST(schedule.next_run_at) && (
                       <div className="flex items-center gap-2">
                         <Calendar className="w-4 h-4 text-slate-400" />
                         <span className="text-slate-600">
-                          Next: {new Date(schedule.next_run_at).toLocaleString('en-US', { timeZone: 'America/New_York' })} EST
+                          Next: {formatToEST(schedule.next_run_at)}
                         </span>
                       </div>
                     )}
@@ -351,14 +352,14 @@ export default function SchedulePage() {
               </div>
 
               {/* Last Run */}
-              {schedule.last_run_at && (
+              {schedule.last_run_at && formatToEST(schedule.last_run_at) && (
                 <div className="mt-4 pt-4 border-t border-slate-200">
                   <Button
                     size="sm"
                     variant="ghost"
                     onClick={() => router.push(`/schedule/${schedule.id}/history`)}
                   >
-                    Last run: {new Date(schedule.last_run_at).toLocaleString('en-US', { timeZone: 'America/New_York' })} EST
+                    Last run: {formatToEST(schedule.last_run_at)}
                     <span className="ml-2">→</span>
                   </Button>
                 </div>

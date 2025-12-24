@@ -7,7 +7,7 @@ from typing import Dict, Any, Optional, Literal
 import traceback
 import uuid
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 from prisma import Prisma
 
 from app.utils.file_parser import FileParser, DataCleaner
@@ -43,7 +43,7 @@ async def process_analysis_background(
             "current_step": "Reading pipeline data...",
             "user_id": user_id,
             "filename": filename,
-            "updated_at": datetime.now().isoformat()
+            "updated_at": datetime.utcnow().isoformat() + "Z"
         }
 
         await asyncio.sleep(0.3)  # Small delay for UX
@@ -56,7 +56,7 @@ async def process_analysis_background(
             "status": "processing",
             "progress": 30,
             "current_step": "Validating deal information...",
-            "updated_at": datetime.now().isoformat()
+            "updated_at": datetime.utcnow().isoformat() + "Z"
         }
 
         await asyncio.sleep(0.3)
@@ -72,7 +72,7 @@ async def process_analysis_background(
             "status": "processing",
             "progress": 50,
             "current_step": "Mapping fields to standard format...",
-            "updated_at": datetime.now().isoformat()
+            "updated_at": datetime.utcnow().isoformat() + "Z"
         }
 
         await asyncio.sleep(0.3)
@@ -102,7 +102,7 @@ async def process_analysis_background(
             "status": "processing",
             "progress": 75,
             "current_step": "Running business rules analysis...",
-            "updated_at": datetime.now().isoformat()
+            "updated_at": datetime.utcnow().isoformat() + "Z"
         }
 
         await asyncio.sleep(0.3)
@@ -115,7 +115,7 @@ async def process_analysis_background(
             "status": "processing",
             "progress": 95,
             "current_step": "Finalizing results...",
-            "updated_at": datetime.now().isoformat()
+            "updated_at": datetime.utcnow().isoformat() + "Z"
         }
 
         await asyncio.sleep(0.2)
@@ -156,7 +156,7 @@ async def process_analysis_background(
             "user_id": user_id,
             "filename": filename,
             "result": result,
-            "updated_at": datetime.now().isoformat()
+            "updated_at": datetime.utcnow().isoformat() + "Z"
         }
 
         print(f"✅ Analysis {analysis_id} completed successfully for user {user_id}")
@@ -173,7 +173,7 @@ async def process_analysis_background(
             "user_id": user_id,
             "filename": filename,
             "error": str(e),
-            "updated_at": datetime.now().isoformat()
+            "updated_at": datetime.utcnow().isoformat() + "Z"
         }
 
 
@@ -221,7 +221,7 @@ async def analyze_pipeline(
             "current_step": "Starting analysis...",
             "user_id": user_id,
             "filename": file.filename,
-            "updated_at": datetime.now().isoformat()
+            "updated_at": datetime.utcnow().isoformat() + "Z"
         }
 
         # Start background processing
@@ -349,7 +349,7 @@ async def get_analysis_result(analysis_id: str) -> Dict[str, Any]:
             }
 
             status_data = {
-                "updated_at": review_run.completedAt.isoformat() if review_run.completedAt else review_run.startedAt.isoformat()
+                "updated_at": (review_run.completedAt.isoformat() + "Z") if review_run.completedAt else (review_run.startedAt.isoformat() + "Z")
             }
         finally:
             await prisma.disconnect()
@@ -671,7 +671,7 @@ async def get_user_history(
                     "deals_with_issues": run.issuesFound or 0,
                     "health_score": health_score,
                     "health_status": health_status,
-                    "analyzed_at": run.completedAt.isoformat() if run.completedAt else run.startedAt.isoformat(),
+                    "analyzed_at": (run.completedAt.isoformat() + "Z") if run.completedAt else (run.startedAt.isoformat() + "Z"),
                     "source": "scheduled",
                     "schedule_name": run.scheduledReview.name,
                 })

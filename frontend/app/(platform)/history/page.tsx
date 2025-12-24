@@ -6,8 +6,8 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Loader2, FileText, Calendar, TrendingUp, TrendingDown } from "lucide-react"
-import { format } from "date-fns"
 import { useAuthenticatedFetch } from "@/hooks/useAuthenticatedFetch"
+import { formatToEST } from "@/lib/utils"
 
 interface Analysis {
   analysis_id: string
@@ -139,7 +139,7 @@ export default function HistoryPage() {
                     <div className="flex items-center space-x-2">
                       <Calendar className="h-4 w-4" />
                       <span>
-                        {format(new Date(analysis.analyzed_at), "MMM d, yyyy 'at' h:mm a")}
+                        {formatToEST(analysis.analyzed_at)}
                       </span>
                     </div>
                     <div>

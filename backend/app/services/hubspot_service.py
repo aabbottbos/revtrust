@@ -1,21 +1,122 @@
 """
-HubSpot integration service
+HubSpot integration service with OAuth support
 """
 
 from hubspot import HubSpot
 from hubspot.crm.deals import ApiException
 from typing import List, Dict, Optional
 import os
-from datetime import datetime
+import requests
+import hashlib
+import base64
+import secrets
+from urllib.parse import urlencode
+from datetime import datetime, timedelta, timezone
 from app.services.encryption_service import get_encryption_service
 from prisma import Prisma
 
 
 class HubSpotService:
-    """Handle HubSpot Private App integration"""
+    """Handle HubSpot OAuth integration"""
 
     def __init__(self):
         self.encryption = get_encryption_service()
+        self.client_id = os.getenv("HUBSPOT_CLIENT_ID")
+        self.client_secret = os.getenv("HUBSPOT_CLIENT_SECRET")
+        self.redirect_uri = os.getenv("HUBSPOT_REDIRECT_URI", "http://localhost:3000/api/oauth/hubspot/callback")
+
+    def get_authorize_url(self, state: str) -> str:
+        """Generate HubSpot OAuth authorization URL"""
+        base_url = "https://app.hubspot.com/oauth/authorize"
+        # Scopes must match what's registered in HubSpot app (app-hsmeta.json)
+        scopes = "oauth crm.objects.contacts.read crm.objects.contacts.write crm.objects.deals.read crm.objects.companies.read crm.schemas.custom.read"
+
+        params = {
+            "client_id": self.client_id,
+            "redirect_uri": self.redirect_uri,
+            "scope": scopes,
+            "state": state
+        }
+
+        # Use urlencode to properly encode spaces and special characters
+        query_string = urlencode(params)
+        return f"{base_url}?{query_string}"
+
+    async def exchange_code_for_tokens(self, code: str) -> Dict:
+        """Exchange authorization code for access/refresh tokens"""
+        token_url = "https://api.hubapi.com/oauth/v1/token"
+
+        response = requests.post(
+            token_url,
+            data={
+                "grant_type": "authorization_code",
+                "code": code,
+                "client_id": self.client_id,
+                "client_secret": self.client_secret,
+                "redirect_uri": self.redirect_uri
+            }
+        )
+
+        if response.status_code != 200:
+            raise Exception(f"Token exchange failed: {response.text}")
+
+        data = response.json()
+
+        # HubSpot tokens expire in the time specified by expires_in (seconds)
+        expires_in = data.get("expires_in", 21600)  # Default 6 hours
+
+        return {
+            "access_token": data["access_token"],
+            "refresh_token": data["refresh_token"],
+            "expires_at": datetime.now(timezone.utc) + timedelta(seconds=expires_in)
+        }
+
+    async def refresh_access_token(self, refresh_token: str) -> Dict:
+        """Refresh an expired access token"""
+        token_url = "https://api.hubapi.com/oauth/v1/token"
+
+        response = requests.post(
+            token_url,
+            data={
+                "grant_type": "refresh_token",
+                "refresh_token": refresh_token,
+                "client_id": self.client_id,
+                "client_secret": self.client_secret
+            }
+        )
+
+        if response.status_code != 200:
+            raise Exception(f"Token refresh failed: {response.text}")
+
+        data = response.json()
+        expires_in = data.get("expires_in", 21600)
+
+        return {
+            "access_token": data["access_token"],
+            "refresh_token": data["refresh_token"],
+            "expires_at": datetime.now(timezone.utc) + timedelta(seconds=expires_in)
+        }
+
+    async def get_account_info(self, access_token: str) -> Dict:
+        """Get HubSpot account info using access token"""
+        try:
+            # Get access token info which includes hub_id
+            response = requests.get(
+                f"https://api.hubapi.com/oauth/v1/access-tokens/{access_token}"
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                return {
+                    "hub_id": data.get("hub_id"),
+                    "hub_domain": data.get("hub_domain", "HubSpot"),
+                    "user_id": data.get("user_id"),
+                    "user": data.get("user")
+                }
+        except Exception as e:
+            print(f"Error getting account info: {e}")
+
+        return {"hub_domain": "HubSpot"}
 
     async def create_connection(
         self,
@@ -100,7 +201,7 @@ class HubSpotService:
         self,
         connection_id: str
     ) -> str:
-        """Get access token for a connection"""
+        """Get access token for a connection, refreshing if necessary"""
 
         prisma = Prisma()
         await prisma.connect()
@@ -113,7 +214,31 @@ class HubSpotService:
             if not connection:
                 raise Exception("Connection not found")
 
-            # Private app tokens don't expire, just return decrypted token
+            # Check if token is expired or expiring soon (for OAuth connections)
+            if connection.expiresAt and connection.refreshToken:
+                # This is an OAuth connection - check expiry
+                if connection.expiresAt < datetime.now(timezone.utc) + timedelta(minutes=5):
+                    # Token is expired or expiring soon - refresh it
+                    refresh_token = self.encryption.decrypt(connection.refreshToken)
+                    token_data = await self.refresh_access_token(refresh_token)
+
+                    # Encrypt new tokens
+                    encrypted_access = self.encryption.encrypt(token_data["access_token"])
+                    encrypted_refresh = self.encryption.encrypt(token_data["refresh_token"])
+
+                    # Update in database
+                    await prisma.crmconnection.update(
+                        where={"id": connection_id},
+                        data={
+                            "accessToken": encrypted_access,
+                            "refreshToken": encrypted_refresh,
+                            "expiresAt": token_data["expires_at"]
+                        }
+                    )
+
+                    return token_data["access_token"]
+
+            # Return the current token (either valid OAuth or Private App token)
             return self.encryption.decrypt(connection.accessToken)
 
         finally:

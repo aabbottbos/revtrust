@@ -116,7 +116,7 @@ async def create_scheduled_review(
             "name": scheduled_review.name,
             "schedule": scheduled_review.schedule,
             "timezone": scheduled_review.timezone,
-            "next_run_at": next_run.isoformat() if next_run else None,
+            "next_run_at": next_run.isoformat() + "Z" if next_run else None,
             "is_active": scheduled_review.isActive
         }
 
@@ -156,9 +156,9 @@ async def list_scheduled_reviews(
                     "timezone": r.timezone,
                     "delivery_channels": r.deliveryChannels,
                     "is_active": r.isActive,
-                    "last_run_at": r.lastRunAt.isoformat() + "-05:00" if r.lastRunAt else None,
-                    "next_run_at": r.nextRunAt.isoformat() + "-05:00" if r.nextRunAt else None,
-                    "created_at": r.createdAt.isoformat() + "-05:00"
+                    "last_run_at": r.lastRunAt.isoformat() + "Z" if r.lastRunAt else None,
+                    "next_run_at": r.nextRunAt.isoformat() + "Z" if r.nextRunAt else None,
+                    "created_at": r.createdAt.isoformat() + "Z"
                 }
                 for r in reviews
             ]
@@ -205,9 +205,9 @@ async def get_scheduled_review(
             "email_recipients": review.emailRecipients,
             "slack_webhook_url": review.slackWebhookUrl,
             "is_active": review.isActive,
-            "last_run_at": review.lastRunAt.isoformat() if review.lastRunAt else None,
-            "next_run_at": review.nextRunAt.isoformat() if review.nextRunAt else None,
-            "created_at": review.createdAt.isoformat()
+            "last_run_at": review.lastRunAt.isoformat() + "Z" if review.lastRunAt else None,
+            "next_run_at": review.nextRunAt.isoformat() + "Z" if review.nextRunAt else None,
+            "created_at": review.createdAt.isoformat() + "Z"
         }
     finally:
         await prisma.disconnect()
@@ -460,8 +460,8 @@ async def get_review_runs(
                 {
                     "id": r.id,
                     "status": r.status,
-                    "started_at": r.startedAt.isoformat(),
-                    "completed_at": r.completedAt.isoformat() if r.completedAt else None,
+                    "started_at": r.startedAt.isoformat() + "Z",
+                    "completed_at": r.completedAt.isoformat() + "Z" if r.completedAt else None,
                     "deals_analyzed": r.dealsAnalyzed,
                     "health_score": r.healthScore,
                     "issues_found": r.issuesFound,

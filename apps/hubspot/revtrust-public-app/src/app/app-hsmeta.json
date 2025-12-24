@@ -1,0 +1,39 @@
+{
+  "uid": "revtrust_public_app_app",
+  "type": "app",
+  "config": {
+    "name": "revtrust-public-app",
+    "description": "Public app for connecting hubspot to revtrust.",
+    "distribution": "marketplace",
+    "auth": {
+      "type": "oauth",
+      "redirectUrls": [
+        "http://localhost:3000/api/oauth/hubspot/callback",
+        "https://api.revtrust.net/oauth/callback"
+      ],
+      "requiredScopes": [
+        "oauth",
+        "crm.objects.contacts.read",
+        "crm.objects.contacts.write",
+        "crm.objects.deals.read",
+        "crm.objects.companies.read",
+        "crm.schemas.custom.read"
+      ],
+      "optionalScopes": [],
+      "conditionallyRequiredScopes": []
+    },
+    "permittedUrls": {
+      "fetch": [
+        "https://api.hubapi.com"
+      ],
+      "iframe": [],
+      "img": []
+    },
+    "support": {
+      "supportEmail": "support@revtrust.net",
+      "documentationUrl": "https://revtrust.net",
+      "supportUrl": "https://revtrust.net/support",
+      "supportPhone": "+18005555555"
+    }
+  }
+}
