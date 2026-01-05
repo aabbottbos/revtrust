@@ -155,17 +155,25 @@ export function useCRMWriteAPI() {
 
 interface UseDealReviewOptions {
   deals: FlaggedDeal[]
+  initialIndex?: number
   onComplete?: () => void
   onUpdate?: (dealId: string, updates: Partial<DealUpdateRequest>) => void
 }
 
-export function useDealReview({ deals, onComplete, onUpdate }: UseDealReviewOptions) {
-  const [currentIndex, setCurrentIndex] = useState(0)
+export function useDealReview({ deals, initialIndex = 0, onComplete, onUpdate }: UseDealReviewOptions) {
+  const [currentIndex, setCurrentIndex] = useState(initialIndex)
   const [updatedDeals, setUpdatedDeals] = useState<Set<string>>(new Set())
   const [isSaving, setIsSaving] = useState(false)
   const [updateError, setUpdateError] = useState<Error | null>(null)
 
   const { updateDeal } = useCRMWriteAPI()
+
+  // Update currentIndex when initialIndex changes (e.g., wizard reopened with different deal)
+  useEffect(() => {
+    if (initialIndex >= 0 && initialIndex < deals.length) {
+      setCurrentIndex(initialIndex)
+    }
+  }, [initialIndex, deals.length])
 
   const currentDeal = deals[currentIndex] || null
   const totalDeals = deals.length
@@ -288,9 +296,12 @@ export function useFlaggedDeals(analysisId: string) {
     setError(null)
 
     try {
+      console.log("[useFlaggedDeals] Fetching for analysisId:", analysisId)
       const data = await getFlaggedDeals(analysisId)
-      setDeals(data.deals)
+      console.log("[useFlaggedDeals] Got data:", { total: data.total_flagged, dealsCount: data.deals?.length })
+      setDeals(data.deals || [])
     } catch (err) {
+      console.error("[useFlaggedDeals] Error:", err)
       setError(err instanceof Error ? err.message : "Failed to load deals")
     } finally {
       setLoading(false)

@@ -86,14 +86,16 @@ class RuleEvaluator:
             # Check if rule applies to this deal's stage
             if rule.applicable_stages:
                 deal_stage = deal_data.get('stage', '')
-                is_closed = deal_stage.lower() in ['closed won', 'closed lost', 'closed-won', 'closed-lost']
+                # Safely convert to string (could be float/int from Excel)
+                deal_stage_str = str(deal_stage).strip() if deal_stage is not None else ''
+                is_closed = deal_stage_str.lower() in ['closed won', 'closed lost', 'closed-won', 'closed-lost']
 
                 # Skip if rule is for non-closed deals only
                 if 'all_except_closed' in rule.applicable_stages and is_closed:
                     return None
 
                 # Skip if deal stage not in applicable stages
-                if deal_stage not in rule.applicable_stages and 'all_except_closed' not in rule.applicable_stages:
+                if deal_stage_str not in rule.applicable_stages and 'all_except_closed' not in rule.applicable_stages:
                     return None
 
             # Evaluate the condition

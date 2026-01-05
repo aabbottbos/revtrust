@@ -91,16 +91,20 @@ class RulesLoader:
     def get_rules_for_stage(self, stage: str) -> List[BusinessRule]:
         """Get rules applicable to a specific stage"""
         applicable_rules = []
+
+        # Safely convert stage to string (could be float/int from Excel)
+        stage_str = str(stage).strip() if stage is not None else ''
+
         for rule in self.rules:
             # If no stages specified, rule applies to all stages
             if not rule.applicable_stages:
                 applicable_rules.append(rule)
             # Check if stage is in applicable stages
-            elif stage in rule.applicable_stages:
+            elif stage_str in rule.applicable_stages:
                 applicable_rules.append(rule)
             # Check for special keywords
             elif 'all_except_closed' in rule.applicable_stages:
-                if stage.lower() not in ['closed won', 'closed lost', 'closed-won', 'closed-lost']:
+                if stage_str.lower() not in ['closed won', 'closed lost', 'closed-won', 'closed-lost']:
                     applicable_rules.append(rule)
 
         return applicable_rules

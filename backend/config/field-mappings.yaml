@@ -22,12 +22,15 @@ mappings:
   deal_name:
     aliases:
       - "opportunity name"
+      - "Opportunity Name"
       - "deal name"
+      - "Deal Name"
       - "name"
       - "opp name"
       - "opportunity_name"
       - "deal_name"
       - "title"
+      - "Opportunity: Opportunity Name"
     required: true
     data_type: "string"
     description: "Name or title of the deal"
@@ -36,6 +39,7 @@ mappings:
   account_name:
     aliases:
       - "account name"
+      - "Account Name"
       - "company"
       - "company name"
       - "account"
@@ -43,6 +47,8 @@ mappings:
       - "customer"
       - "account_name"
       - "company_name"
+      - "Account: Account Name"
+      - "Opportunity: Account Name"
     required: true
     data_type: "string"
     description: "Name of the account/company"
@@ -62,6 +68,7 @@ mappings:
   amount:
     aliases:
       - "amount"
+      - "Amount"
       - "deal amount"
       - "opportunity amount"
       - "value"
@@ -72,6 +79,7 @@ mappings:
       - "arr"
       - "acv"
       - "tcv"
+      - "Opportunity: Amount"
     required: true
     data_type: "currency"
     description: "Deal amount or value"
@@ -90,6 +98,7 @@ mappings:
   close_date:
     aliases:
       - "close date"
+      - "Close Date"
       - "expected close"
       - "expected close date"
       - "target close"
@@ -99,6 +108,7 @@ mappings:
       - "target_close_date"
       - "closed date"
       - "est. close date"
+      - "Opportunity: Close Date"
     required: true
     data_type: "date"
     description: "Expected or actual close date"
@@ -134,6 +144,7 @@ mappings:
   stage:
     aliases:
       - "stage"
+      - "Stage"
       - "stage name"
       - "sales stage"
       - "opportunity stage"
@@ -142,6 +153,7 @@ mappings:
       - "stage_name"
       - "sales_stage"
       - "current stage"
+      - "Opportunity: Stage"
     required: true
     data_type: "string"
     description: "Current stage in the sales pipeline"
@@ -174,6 +186,7 @@ mappings:
   owner_name:
     aliases:
       - "owner"
+      - "Owner"
       - "owner name"
       - "sales rep"
       - "rep name"
@@ -182,6 +195,9 @@ mappings:
       - "owner_name"
       - "rep"
       - "assigned to"
+      - "Opportunity Owner"
+      - "Opportunity: Owner Name"
+      - "Owner: Full Name"
     required: true
     data_type: "string"
     description: "Name of the deal owner"

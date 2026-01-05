@@ -389,10 +389,11 @@ async def get_analysis_result(analysis_id: str) -> Dict[str, Any]:
         violations_by_deal[deal_id].append(violation)
 
     # Group violations by category for the issues table
+    # Normalize severity to lowercase for consistent comparison
     issues_by_category_dict = {}
     for violation in result.get("violations", []):
         rule_name = violation.get("rule_name", "Unknown")
-        severity = violation.get("severity", "info")
+        severity = violation.get("severity", "info").lower()  # Normalize to lowercase
 
         if rule_name not in issues_by_category_dict:
             issues_by_category_dict[rule_name] = {
@@ -413,6 +414,82 @@ async def get_analysis_result(analysis_id: str) -> Dict[str, Any]:
         key=lambda x: (severity_order.get(x["severity"], 3), -x["count"])
     )
 
+    # =========================================
+    # ISSUES VIEW AGGREGATIONS
+    # Group by issue type for issues-centric view
+    # =========================================
+    issues_summary = []
+    for rule_name, data in issues_by_category_dict.items():
+        # Find all deals affected by this issue type
+        affected_deals = set()
+        for violation in result.get("violations", []):
+            if violation.get("rule_name") == rule_name:
+                deal_id = violation.get("deal_id") or violation.get("deal_name", "Unknown")
+                affected_deals.add(deal_id)
+
+        issues_summary.append({
+            "issue_type": rule_name,
+            "severity": data["severity"],  # Already normalized to lowercase
+            "total_occurrences": data["count"],
+            "affected_deals_count": len(affected_deals),
+            "affected_deal_ids": list(affected_deals),
+            "sample_message": data["sample_violation"]["message"],
+            "category": result.get("violations_by_category", {}).get(rule_name, {}).get("category", "UNKNOWN"),
+        })
+
+    # Sort issues by severity, then by count
+    issues_summary.sort(
+        key=lambda x: (severity_order.get(x["severity"], 3), -x["total_occurrences"])
+    )
+
+    # =========================================
+    # DEALS VIEW AGGREGATIONS
+    # Group by deal for deals-centric view
+    # =========================================
+    deals_summary = []
+    for deal_id, deal_violations in violations_by_deal.items():
+        # Use case-insensitive comparison for severity (config uses UPPERCASE, we normalize to lowercase)
+        critical_count = sum(1 for v in deal_violations if v.get("severity", "").lower() == "critical")
+        warning_count = sum(1 for v in deal_violations if v.get("severity", "").lower() == "warning")
+        info_count = sum(1 for v in deal_violations if v.get("severity", "").lower() == "info")
+
+        # Determine deal severity (highest wins)
+        if critical_count > 0:
+            deal_severity = "critical"
+        elif warning_count > 0:
+            deal_severity = "warning"
+        else:
+            deal_severity = "info"
+
+        # Get deal metadata from first violation
+        first_violation = deal_violations[0] if deal_violations else {}
+
+        deals_summary.append({
+            "deal_id": deal_id,
+            "deal_name": first_violation.get("deal_name", deal_id),
+            "account_name": first_violation.get("account_name"),
+            "amount": first_violation.get("amount"),
+            "stage": first_violation.get("stage"),
+            "close_date": first_violation.get("close_date"),
+            "severity": deal_severity,
+            "total_issues": len(deal_violations),
+            "critical_count": critical_count,
+            "warning_count": warning_count,
+            "info_count": info_count,
+            "issue_types": list(set(v.get("rule_name", "Unknown") for v in deal_violations)),
+        })
+
+    # Sort deals by severity, then by issue count
+    deals_summary.sort(
+        key=lambda x: (severity_order.get(x["severity"], 3), -x["total_issues"])
+    )
+
+    # Count totals
+    total_issues = len(result.get("violations", []))
+    critical_issues = result.get("analysis", {}).get("total_critical", 0)
+    warning_issues = result.get("analysis", {}).get("total_warnings", 0)
+    info_issues = result.get("analysis", {}).get("total_info", 0)
+
     # Return enhanced result
     return {
         "analysis_id": analysis_id,
@@ -425,10 +502,16 @@ async def get_analysis_result(analysis_id: str) -> Dict[str, Any]:
         "health_score": result.get("analysis", {}).get("health_score", 0),
         "health_status": health_status,
         "health_color": health_color,
-        "critical_issues": result.get("analysis", {}).get("total_critical", 0),
-        "warning_issues": result.get("analysis", {}).get("total_warnings", 0),
-        "info_issues": result.get("analysis", {}).get("total_info", 0),
+        # Issue counts
+        "total_issues": total_issues,
+        "critical_issues": critical_issues,
+        "warning_issues": warning_issues,
+        "info_issues": info_issues,
+        # Views data
         "issues_by_category": issues_by_category,
+        "issues_summary": issues_summary,  # For issues view
+        "deals_summary": deals_summary,    # For deals view
+        # Raw data
         "violations": result.get("violations", []),
         "violations_by_deal": violations_by_deal,
         "violations_by_category": result.get("violations_by_category", {}),

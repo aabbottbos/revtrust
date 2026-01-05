@@ -92,17 +92,95 @@ class FileParser:
         raise ValueError("Unable to decode CSV file with supported encodings")
 
     def _parse_excel(self, file_content: bytes) -> pd.DataFrame:
-        """Parse Excel file"""
+        """Parse Excel file, detecting header row if needed"""
         try:
-            # Read first sheet
-            df = pd.read_excel(
+            # First, try to detect the header row
+            # Some exports (like Salesforce) have metadata rows before the actual headers
+            df_raw = pd.read_excel(
                 io.BytesIO(file_content),
                 sheet_name=0,
-                engine='openpyxl'
+                engine='openpyxl',
+                header=None  # Don't assume any header yet
             )
+
+            # Find the header row by looking for a row with mostly non-null string values
+            # that look like column headers (not dates, numbers, or "Unnamed")
+            header_row = self._detect_header_row(df_raw)
+
+            print(f"📊 Excel Header Detection:")
+            print(f"  - Detected header row: {header_row}")
+            if header_row > 0:
+                print(f"  - Row contents: {df_raw.iloc[header_row].tolist()[:5]}...")
+
+            if header_row > 0:
+                # Re-read with correct header row
+                df = pd.read_excel(
+                    io.BytesIO(file_content),
+                    sheet_name=0,
+                    engine='openpyxl',
+                    header=header_row
+                )
+                print(f"  - Final columns: {df.columns.tolist()[:5]}...")
+            else:
+                # Standard read - first row is header
+                df = pd.read_excel(
+                    io.BytesIO(file_content),
+                    sheet_name=0,
+                    engine='openpyxl'
+                )
+                print(f"  - Final columns (from row 0): {df.columns.tolist()[:5]}...")
+
             return df
         except Exception as e:
             raise ValueError(f"Failed to parse Excel file: {str(e)}")
+
+    def _detect_header_row(self, df: pd.DataFrame) -> int:
+        """
+        Detect which row contains the actual column headers.
+        Looks for a row with multiple non-null text values that look like headers.
+        """
+        # Common header keywords to look for
+        header_keywords = [
+            'name', 'id', 'date', 'amount', 'stage', 'owner', 'account',
+            'opportunity', 'deal', 'probability', 'close', 'type', 'source',
+            'created', 'status', 'revenue', 'company', 'contact'
+        ]
+
+        for idx in range(min(20, len(df))):  # Check first 20 rows
+            row = df.iloc[idx]
+            non_null_values = [v for v in row if pd.notna(v)]
+
+            # Skip rows with too few values
+            if len(non_null_values) < 3:
+                continue
+
+            # Convert to strings safely and check if they look like headers
+            str_values = []
+            for v in non_null_values:
+                try:
+                    str_val = str(v).lower().strip()
+                    str_values.append(str_val)
+                except (AttributeError, TypeError):
+                    # Skip values that can't be converted to string
+                    str_values.append('')
+
+            # Count how many values contain header keywords
+            keyword_matches = sum(
+                1 for val in str_values
+                if val and any(kw in val for kw in header_keywords)
+            )
+
+            # Also check if most values are short strings (likely headers)
+            short_strings = sum(
+                1 for val in str_values
+                if val and len(val) < 50 and not val.replace('.', '').replace('-', '').isdigit()
+            )
+
+            # If we have multiple keyword matches and mostly short strings, this is likely the header
+            if keyword_matches >= 3 or (short_strings >= len(str_values) * 0.7 and len(non_null_values) >= 5):
+                return idx
+
+        return 0  # Default to first row
 
     def _clean_column_names(self, columns: pd.Index) -> List[str]:
         """Clean and standardize column names"""
