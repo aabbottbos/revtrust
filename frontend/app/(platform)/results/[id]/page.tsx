@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useMemo } from "react"
+import { useEffect, useState, useMemo, useCallback } from "react"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -25,6 +25,7 @@ import {
   AIInsightsSection,
   BusinessRulesSection,
 } from "@/components/results"
+import type { DealsFilter, IssuesFilter } from "@/components/results"
 
 interface DealSummary {
   deal_id: string
@@ -110,6 +111,46 @@ export default function ResultsPage() {
   const [showWizard, setShowWizard] = useState(false)
   const [activeTab, setActiveTab] = useState<"deals" | "issues">("deals")
   const [initialDealId, setInitialDealId] = useState<string | null>(null)
+
+  // Filter state for each view - initialized from URL params
+  const [dealsFilter, setDealsFilter] = useState<DealsFilter>(() => {
+    const filterParam = searchParams.get("filter")
+    if (filterParam && ["all", "critical", "warning", "healthy"].includes(filterParam)) {
+      return filterParam as DealsFilter
+    }
+    return "all"
+  })
+  const [issuesFilter, setIssuesFilter] = useState<IssuesFilter>(() => {
+    const filterParam = searchParams.get("filter")
+    if (filterParam && ["all", "critical", "warning", "info"].includes(filterParam)) {
+      return filterParam as IssuesFilter
+    }
+    return "all"
+  })
+
+  // Update URL when filter changes
+  const updateFilterUrl = useCallback((filter: string) => {
+    const params = new URLSearchParams(searchParams.toString())
+    if (filter === "all") {
+      params.delete("filter")
+    } else {
+      params.set("filter", filter)
+    }
+    const newUrl = params.toString()
+      ? `/results/${analysisId}?${params.toString()}`
+      : `/results/${analysisId}`
+    router.replace(newUrl, { scroll: false })
+  }, [analysisId, router, searchParams])
+
+  const handleDealsFilterChange = useCallback((filter: DealsFilter) => {
+    setDealsFilter(filter)
+    updateFilterUrl(filter)
+  }, [updateFilterUrl])
+
+  const handleIssuesFilterChange = useCallback((filter: IssuesFilter) => {
+    setIssuesFilter(filter)
+    updateFilterUrl(filter)
+  }, [updateFilterUrl])
 
   // Fetch flagged deals for the wizard
   const { deals: flaggedDeals, refetch: refetchFlaggedDeals, loading: flaggedDealsLoading, error: flaggedDealsError } = useFlaggedDeals(analysisId)
@@ -333,6 +374,8 @@ export default function ResultsPage() {
                   dealsWithIssues={result.deals_with_issues}
                   onDealClick={handleDealClick}
                   onReviewClick={() => setShowWizard(true)}
+                  filter={dealsFilter}
+                  onFilterChange={handleDealsFilterChange}
                 />
               </TabsContent>
 
@@ -346,6 +389,8 @@ export default function ResultsPage() {
                   totalDeals={result.total_deals}
                   onIssueClick={handleDealClick}
                   onReviewClick={() => setShowWizard(true)}
+                  filter={issuesFilter}
+                  onFilterChange={handleIssuesFilterChange}
                 />
               </TabsContent>
             </Tabs>

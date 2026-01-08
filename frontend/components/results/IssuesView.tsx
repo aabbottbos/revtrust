@@ -29,6 +29,8 @@ interface IssueSummary {
   category: string
 }
 
+export type IssuesFilter = "all" | "critical" | "warning" | "info"
+
 interface IssuesViewProps {
   issuesSummary: IssueSummary[]
   totalIssues: number
@@ -38,6 +40,8 @@ interface IssuesViewProps {
   totalDeals: number
   onIssueClick?: (issueType: string) => void
   onReviewClick?: () => void
+  filter?: IssuesFilter
+  onFilterChange?: (filter: IssuesFilter) => void
 }
 
 const severityConfig = {
@@ -197,26 +201,59 @@ export function IssuesView({
   totalDeals,
   onIssueClick,
   onReviewClick,
+  filter = "all",
+  onFilterChange,
 }: IssuesViewProps) {
   const issueTypes = issuesSummary.length
+
+  // Filter issues based on selected filter
+  const filteredIssues = filter === "all"
+    ? issuesSummary
+    : issuesSummary.filter(issue => issue.severity === filter)
+
+  // Get count for filtered results
+  const filteredIssueTypes = filteredIssues.length
+
+  // Selected card styling
+  const selectedCardClasses = "ring-2 ring-offset-2 ring-slate-900"
 
   return (
     <div className="space-y-6">
       {/* Summary Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="p-4">
+        <Card
+          className={`p-4 cursor-pointer hover:shadow-md transition-shadow ${
+            filter === "all" ? selectedCardClasses : ""
+          }`}
+          onClick={() => onFilterChange?.("all")}
+        >
           <div className="text-2xl font-bold text-slate-900">{totalIssues}</div>
           <div className="text-sm text-slate-600">Total Issues</div>
         </Card>
-        <Card className="p-4 border-red-200 bg-red-50">
+        <Card
+          className={`p-4 border-red-200 bg-red-50 cursor-pointer hover:shadow-md transition-shadow ${
+            filter === "critical" ? selectedCardClasses : ""
+          }`}
+          onClick={() => onFilterChange?.("critical")}
+        >
           <div className="text-2xl font-bold text-red-700">{criticalCount}</div>
           <div className="text-sm text-red-600">Critical</div>
         </Card>
-        <Card className="p-4 border-orange-200 bg-orange-50">
+        <Card
+          className={`p-4 border-orange-200 bg-orange-50 cursor-pointer hover:shadow-md transition-shadow ${
+            filter === "warning" ? selectedCardClasses : ""
+          }`}
+          onClick={() => onFilterChange?.("warning")}
+        >
           <div className="text-2xl font-bold text-orange-700">{warningCount}</div>
           <div className="text-sm text-orange-600">Warnings</div>
         </Card>
-        <Card className="p-4 border-blue-200 bg-blue-50">
+        <Card
+          className={`p-4 border-blue-200 bg-blue-50 cursor-pointer hover:shadow-md transition-shadow ${
+            filter === "info" ? selectedCardClasses : ""
+          }`}
+          onClick={() => onFilterChange?.("info")}
+        >
           <div className="text-2xl font-bold text-blue-700">{infoCount}</div>
           <div className="text-sm text-blue-600">Info</div>
         </Card>
@@ -227,7 +264,12 @@ export function IssuesView({
         <div className="p-4 border-b bg-slate-50">
           <div className="flex items-center justify-between">
             <h3 className="font-semibold text-slate-900">
-              Issue Types ({issueTypes})
+              Issue Types ({filteredIssueTypes})
+              {filter !== "all" && (
+                <span className="ml-2 text-sm font-normal text-slate-500">
+                  (filtered by {filter})
+                </span>
+              )}
             </h3>
             {totalIssues > 0 && onReviewClick && (
               <Button size="sm" onClick={onReviewClick}>
@@ -237,19 +279,28 @@ export function IssuesView({
           </div>
         </div>
 
-        {issuesSummary.length === 0 ? (
+        {filteredIssues.length === 0 ? (
           <div className="p-8 text-center">
             <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg className="w-6 h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <p className="text-slate-600 font-medium">No issues detected!</p>
-            <p className="text-sm text-slate-500 mt-1">Your pipeline is clean and healthy.</p>
+            {filter === "all" ? (
+              <>
+                <p className="text-slate-600 font-medium">No issues detected!</p>
+                <p className="text-sm text-slate-500 mt-1">Your pipeline is clean and healthy.</p>
+              </>
+            ) : (
+              <>
+                <p className="text-slate-600 font-medium">No {filter} issues</p>
+                <p className="text-sm text-slate-500 mt-1">No issues match the selected filter.</p>
+              </>
+            )}
           </div>
         ) : (
           <div>
-            {issuesSummary.map((issue) => (
+            {filteredIssues.map((issue) => (
               <IssueRow
                 key={issue.issue_type}
                 issue={issue}

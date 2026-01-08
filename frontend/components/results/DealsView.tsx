@@ -33,12 +33,16 @@ interface DealSummary {
   issue_types: string[]
 }
 
+export type DealsFilter = "all" | "critical" | "warning" | "healthy"
+
 interface DealsViewProps {
   dealsSummary: DealSummary[]
   totalDeals: number
   dealsWithIssues: number
   onDealClick?: (dealId: string) => void
   onReviewClick?: () => void
+  filter?: DealsFilter
+  onFilterChange?: (filter: DealsFilter) => void
 }
 
 const severityConfig = {
@@ -77,29 +81,64 @@ export function DealsView({
   dealsWithIssues,
   onDealClick,
   onReviewClick,
+  filter = "all",
+  onFilterChange,
 }: DealsViewProps) {
   const healthyDeals = totalDeals - dealsWithIssues
   const criticalDeals = dealsSummary.filter(d => d.severity === "critical").length
   const warningDeals = dealsSummary.filter(d => d.severity === "warning").length
   const infoDeals = dealsSummary.filter(d => d.severity === "info").length
 
+  // Filter deals based on selected filter
+  const filteredDeals = filter === "all"
+    ? dealsSummary
+    : filter === "healthy"
+    ? [] // Healthy deals are not in dealsSummary (they have no issues)
+    : dealsSummary.filter(d => d.severity === filter)
+
+  // Get count for filtered results
+  const filteredDealsCount = filter === "healthy" ? healthyDeals : filteredDeals.length
+
+  // Selected card styling
+  const selectedCardClasses = "ring-2 ring-offset-2 ring-slate-900"
+
   return (
     <div className="space-y-6">
       {/* Summary Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="p-4">
+        <Card
+          className={`p-4 cursor-pointer hover:shadow-md transition-shadow ${
+            filter === "all" ? selectedCardClasses : ""
+          }`}
+          onClick={() => onFilterChange?.("all")}
+        >
           <div className="text-2xl font-bold text-slate-900">{totalDeals}</div>
           <div className="text-sm text-slate-600">Total Deals</div>
         </Card>
-        <Card className="p-4 border-red-200 bg-red-50">
+        <Card
+          className={`p-4 border-red-200 bg-red-50 cursor-pointer hover:shadow-md transition-shadow ${
+            filter === "critical" ? selectedCardClasses : ""
+          }`}
+          onClick={() => onFilterChange?.("critical")}
+        >
           <div className="text-2xl font-bold text-red-700">{criticalDeals}</div>
           <div className="text-sm text-red-600">Critical Issues</div>
         </Card>
-        <Card className="p-4 border-orange-200 bg-orange-50">
+        <Card
+          className={`p-4 border-orange-200 bg-orange-50 cursor-pointer hover:shadow-md transition-shadow ${
+            filter === "warning" ? selectedCardClasses : ""
+          }`}
+          onClick={() => onFilterChange?.("warning")}
+        >
           <div className="text-2xl font-bold text-orange-700">{warningDeals}</div>
           <div className="text-sm text-orange-600">Warnings</div>
         </Card>
-        <Card className="p-4 border-green-200 bg-green-50">
+        <Card
+          className={`p-4 border-green-200 bg-green-50 cursor-pointer hover:shadow-md transition-shadow ${
+            filter === "healthy" ? selectedCardClasses : ""
+          }`}
+          onClick={() => onFilterChange?.("healthy")}
+        >
           <div className="text-2xl font-bold text-green-700">{healthyDeals}</div>
           <div className="text-sm text-green-600">Healthy Deals</div>
         </Card>
@@ -110,9 +149,18 @@ export function DealsView({
         <div className="p-4 border-b bg-slate-50">
           <div className="flex items-center justify-between">
             <h3 className="font-semibold text-slate-900">
-              Deals Requiring Attention ({dealsWithIssues})
+              {filter === "healthy"
+                ? `Healthy Deals (${healthyDeals})`
+                : filter === "all"
+                ? `Deals Requiring Attention (${dealsWithIssues})`
+                : `${filter === "critical" ? "Critical" : "Warning"} Deals (${filteredDealsCount})`}
+              {filter !== "all" && filter !== "healthy" && (
+                <span className="ml-2 text-sm font-normal text-slate-500">
+                  (filtered by {filter})
+                </span>
+              )}
             </h3>
-            {dealsWithIssues > 0 && onReviewClick && (
+            {dealsWithIssues > 0 && onReviewClick && filter !== "healthy" && (
               <Button size="sm" onClick={onReviewClick}>
                 Review All
               </Button>
@@ -120,19 +168,38 @@ export function DealsView({
           </div>
         </div>
 
-        {dealsSummary.length === 0 ? (
+        {filter === "healthy" ? (
           <div className="p-8 text-center">
             <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg className="w-6 h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <p className="text-slate-600 font-medium">All deals are healthy!</p>
-            <p className="text-sm text-slate-500 mt-1">No issues detected in your pipeline.</p>
+            <p className="text-slate-600 font-medium">{healthyDeals} healthy deal{healthyDeals !== 1 ? "s" : ""}</p>
+            <p className="text-sm text-slate-500 mt-1">These deals have no issues and don't require attention.</p>
+          </div>
+        ) : filteredDeals.length === 0 ? (
+          <div className="p-8 text-center">
+            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-6 h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            {filter === "all" ? (
+              <>
+                <p className="text-slate-600 font-medium">All deals are healthy!</p>
+                <p className="text-sm text-slate-500 mt-1">No issues detected in your pipeline.</p>
+              </>
+            ) : (
+              <>
+                <p className="text-slate-600 font-medium">No {filter} deals</p>
+                <p className="text-sm text-slate-500 mt-1">No deals match the selected filter.</p>
+              </>
+            )}
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
-            {dealsSummary.map((deal) => {
+            {filteredDeals.map((deal) => {
               const config = severityConfig[deal.severity]
               const Icon = config.icon
 
