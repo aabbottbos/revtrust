@@ -33,6 +33,14 @@ model User {
   scheduledReviews ScheduledReview[]
   outputTemplates  OutputTemplate[]
 
+  // Organization membership
+  memberships      OrgMembership[]
+  invitationsSent  OrgInvitation[]  @relation("InvitedBy")
+
+  // Custom rules
+  customRules      CustomRule[]
+  ruleOverrides    GlobalRuleOverride[]
+
   @@map("users")
 }
 
@@ -361,4 +369,131 @@ model OutputTemplate {
 
   @@index([userId])
   @@map("output_templates")
+}
+
+// ===========================================
+// ORGANIZATION / TEAM MANAGEMENT
+// ===========================================
+
+model Organization {
+  id               String   @id @default(uuid())
+  name             String
+  slug             String   @unique
+  planTier         String   @default("team")  // "team", "enterprise"
+  settings         Json?
+  stripeCustomerId String?
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  memberships      OrgMembership[]
+  invitations      OrgInvitation[]
+  customRules      CustomRule[]
+  ruleOverrides    GlobalRuleOverride[]
+
+  @@map("organizations")
+}
+
+model OrgMembership {
+  id        String   @id @default(uuid())
+  orgId     String
+  userId    String
+  role      String   @default("ae")  // "admin", "manager", "ae"
+  reportsTo String?  // userId of manager
+  isActive  Boolean  @default(true)
+  joinedAt  DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, userId])
+  @@index([orgId, isActive])
+  @@index([userId, isActive])
+  @@map("org_memberships")
+}
+
+model OrgInvitation {
+  id         String    @id @default(uuid())
+  orgId      String
+  invitedBy  String
+  email      String
+  role       String    @default("ae")
+  reportsTo  String?
+  token      String    @unique @default(uuid())
+  status     String    @default("pending")  // "pending", "accepted", "declined", "expired"
+  expiresAt  DateTime
+  acceptedAt DateTime?
+
+  createdAt  DateTime  @default(now())
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  inviter      User         @relation("InvitedBy", fields: [invitedBy], references: [id], onDelete: Cascade)
+
+  @@index([orgId, status])
+  @@index([email, status])
+  @@map("org_invitations")
+}
+
+// ===========================================
+// CUSTOM BUSINESS RULES
+// ===========================================
+
+model CustomRule {
+  id                    String   @id @default(uuid())
+
+  // Ownership: either user-level OR org-level (mutually exclusive)
+  userId                String?
+  orgId                 String?
+
+  // Rule definition
+  ruleId                String            // e.g., "custom_001"
+  name                  String
+  category              ViolationCategory
+  severity              Severity
+  description           String
+  condition             Json              // Rule condition logic
+  message               String
+  remediation           String?
+  remediationOwner      String?           // "Rep", "Manager", "Auto"
+  automatable           Boolean           @default(false)
+  applicableStages      String[]
+  priority              Int               @default(0)
+  enabled               Boolean           @default(true)
+
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  user                  User?             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization          Organization?     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, ruleId])
+  @@unique([orgId, ruleId])
+  @@index([userId, enabled])
+  @@index([orgId, enabled])
+  @@map("custom_rules")
+}
+
+model GlobalRuleOverride {
+  id                    String   @id @default(uuid())
+
+  // Ownership: either user-level OR org-level (mutually exclusive)
+  userId                String?
+  orgId                 String?
+
+  globalRuleId          String            // e.g., "dq_001" - references the YAML rule
+  enabled               Boolean           @default(true)  // Toggle on/off
+  thresholdOverrides    Json?             // e.g., {"value": 45} to change threshold
+
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  user                  User?             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization          Organization?     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, globalRuleId])
+  @@unique([orgId, globalRuleId])
+  @@index([userId])
+  @@index([orgId])
+  @@map("global_rule_overrides")
 }

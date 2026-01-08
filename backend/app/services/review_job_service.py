@@ -8,7 +8,7 @@ from prisma import Prisma
 from app.services.salesforce_service import get_salesforce_service
 from app.services.hubspot_service import get_hubspot_service
 from app.services.ai_service import get_ai_service
-from app.utils.business_rules_engine import BusinessRulesEngine
+from app.utils.business_rules_engine import ContextualBusinessRulesEngine
 import traceback
 import logging
 
@@ -19,7 +19,6 @@ class ReviewJobService:
     """Execute scheduled pipeline review jobs"""
 
     def __init__(self):
-        self.rules_engine = BusinessRulesEngine()
         self.ai_service = get_ai_service()
 
     async def execute_review(
@@ -122,9 +121,22 @@ class ReviewJobService:
 
             logger.info(f"✓ Fetched {len(deals)} deals")
 
-            # Step 2: Run business rules analysis
+            # Step 2: Run business rules analysis with user/org context
             logger.info("🔍 Running business rules analysis...")
-            analysis_result = self.rules_engine.analyze_deals(deals)
+
+            # Get user's org membership for contextual rules
+            org_id = None
+            if user:
+                membership = await prisma.orgmembership.find_first(
+                    where={"userId": user.id, "isActive": True}
+                )
+                org_id = membership.orgId if membership else None
+
+            # Create contextual engine and load user's custom rules
+            rules_engine = ContextualBusinessRulesEngine()
+            await rules_engine.load_context(prisma, user_id=user.id if user else None, org_id=org_id)
+
+            analysis_result = rules_engine.analyze_deals(deals)
 
             health_score = int(analysis_result["health_score"])
             violations = analysis_result["violations"]

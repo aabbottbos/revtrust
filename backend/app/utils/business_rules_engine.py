@@ -1,9 +1,9 @@
 """
 Business Rules Engine - Main orchestrator for rule evaluation
 """
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
 from dataclasses import asdict
-from .rules_loader import RulesLoader, BusinessRule
+from .rules_loader import RulesLoader, ContextualRulesLoader, BusinessRule
 from .rule_evaluator import RuleEvaluator, Violation
 
 
@@ -207,4 +207,188 @@ class BusinessRulesEngine:
             'total_rules': len(all_rules),
             'by_category': categories,
             'by_severity': severities,
+        }
+
+
+class ContextualBusinessRulesEngine:
+    """
+    Enhanced business rules engine that supports user/org context.
+    Loads and applies custom rules and global rule overrides based on
+    the user's subscription and organization membership.
+    """
+
+    def __init__(self, config_path: str = None):
+        """
+        Initialize the contextual business rules engine.
+
+        Args:
+            config_path: Optional path to business rules YAML file
+        """
+        self.rules_loader = ContextualRulesLoader(config_path)
+        self.rule_evaluator = RuleEvaluator()
+        self._context_loaded = False
+
+    async def load_context(self, db, user_id: Optional[str] = None, org_id: Optional[str] = None):
+        """
+        Load user/org context for rule evaluation.
+
+        Args:
+            db: Prisma database instance
+            user_id: User ID for user-specific rules
+            org_id: Organization ID for org-specific rules
+        """
+        await self.rules_loader.load_context(db, user_id, org_id)
+        self._context_loaded = True
+
+    def analyze_deal(self, deal_data: Dict[str, Any]) -> Tuple[List[Violation], Dict[str, int]]:
+        """
+        Analyze a single deal against all applicable rules.
+
+        Args:
+            deal_data: Dictionary containing deal information
+
+        Returns:
+            Tuple of (violations list, summary dict)
+        """
+        # Get effective rules (with overrides applied)
+        deal_stage = deal_data.get('stage')
+        if deal_stage:
+            applicable_rules = self.rules_loader.get_rules_for_stage(deal_stage)
+        else:
+            applicable_rules = self.rules_loader.get_effective_rules()
+
+        # Evaluate all applicable rules
+        violations = self.rule_evaluator.evaluate_all_rules(applicable_rules, deal_data)
+
+        # Generate summary
+        summary = self._generate_violation_summary(violations)
+
+        return violations, summary
+
+    def analyze_deals(self, deals_data: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Analyze multiple deals against all applicable rules.
+
+        Args:
+            deals_data: List of dictionaries containing deal information
+
+        Returns:
+            Dictionary with analysis results
+        """
+        all_violations = []
+        deals_with_violations = 0
+        total_critical = 0
+        total_warnings = 0
+        total_info = 0
+
+        # Analyze each deal
+        for deal in deals_data:
+            violations, summary = self.analyze_deal(deal)
+
+            if violations:
+                deals_with_violations += 1
+                total_critical += summary['critical']
+                total_warnings += summary['warning']
+                total_info += summary['info']
+
+            # Attach violations to deal
+            all_violations.extend([
+                {
+                    'deal_id': deal.get('deal_id') or deal.get('id') or deal.get('external_id'),
+                    'deal_name': deal.get('deal_name'),
+                    **asdict(v)
+                }
+                for v in violations
+            ])
+
+        # Calculate health score (0-100)
+        total_deals = len(deals_data)
+        if total_deals > 0:
+            clean_deals_pct = ((total_deals - deals_with_violations) / total_deals) * 100
+            severity_penalty = (total_critical * 5 + total_warnings * 2 + total_info * 0.5)
+            max_penalty = total_deals * 10
+            penalty_pct = min((severity_penalty / max_penalty) * 100, 100) if max_penalty > 0 else 0
+            health_score = max(0, clean_deals_pct - penalty_pct)
+        else:
+            health_score = 0
+
+        return {
+            'total_deals': total_deals,
+            'deals_with_issues': deals_with_violations,
+            'health_score': round(health_score, 2),
+            'total_critical': total_critical,
+            'total_warnings': total_warnings,
+            'total_info': total_info,
+            'violations': all_violations,
+            'violations_by_category': self._group_violations_by_category(all_violations),
+            'violations_by_severity': self._group_violations_by_severity(all_violations),
+        }
+
+    def _generate_violation_summary(self, violations: List[Violation]) -> Dict[str, int]:
+        """Generate summary counts by severity"""
+        summary = {
+            'critical': 0,
+            'warning': 0,
+            'info': 0,
+            'total': len(violations)
+        }
+
+        for violation in violations:
+            severity_key = violation.severity.lower()
+            if severity_key in summary:
+                summary[severity_key] += 1
+
+        return summary
+
+    def _group_violations_by_category(self, violations: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
+        """Group violations by category"""
+        grouped = {}
+        for violation in violations:
+            category = violation.get('category', 'UNKNOWN')
+            if category not in grouped:
+                grouped[category] = []
+            grouped[category].append(violation)
+        return grouped
+
+    def _group_violations_by_severity(self, violations: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
+        """Group violations by severity"""
+        grouped = {
+            'CRITICAL': [],
+            'WARNING': [],
+            'INFO': []
+        }
+        for violation in violations:
+            severity = violation.get('severity', 'INFO')
+            if severity in grouped:
+                grouped[severity].append(violation)
+        return grouped
+
+    def get_effective_rules(self) -> List[BusinessRule]:
+        """Get all effective rules (global + custom with overrides applied)"""
+        return self.rules_loader.get_effective_rules()
+
+    def get_rules_summary(self) -> Dict[str, Any]:
+        """Get summary of all effective rules"""
+        all_rules = self.rules_loader.get_effective_rules()
+
+        categories = {}
+        severities = {'CRITICAL': 0, 'WARNING': 0, 'INFO': 0}
+        scopes = {'global': 0, 'user': 0, 'org': 0}
+
+        for rule in all_rules:
+            if rule.category not in categories:
+                categories[rule.category] = 0
+            categories[rule.category] += 1
+
+            if rule.severity in severities:
+                severities[rule.severity] += 1
+
+            if rule.scope in scopes:
+                scopes[rule.scope] += 1
+
+        return {
+            'total_rules': len(all_rules),
+            'by_category': categories,
+            'by_severity': severities,
+            'by_scope': scopes,
         }

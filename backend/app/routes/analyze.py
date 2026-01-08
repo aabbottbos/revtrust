@@ -12,7 +12,7 @@ from prisma import Prisma
 
 from app.utils.file_parser import FileParser, DataCleaner
 from app.utils.field_mapper import FieldMapper
-from app.utils.business_rules_engine import BusinessRulesEngine
+from app.utils.business_rules_engine import BusinessRulesEngine, ContextualBusinessRulesEngine
 from app.utils.export_generator import get_export_generator
 from app.utils.file_validator import FileValidator
 from app.auth import get_current_user_id
@@ -107,8 +107,28 @@ async def process_analysis_background(
 
         await asyncio.sleep(0.3)
 
-        engine = BusinessRulesEngine()
-        analysis_results = engine.analyze_deals(mapped_data)
+        # Use contextual engine with user/org custom rules
+        db = Prisma()
+        await db.connect()
+        try:
+            # Get user's database ID and org membership
+            db_user = await db.user.find_unique(where={"clerkId": user_id})
+            db_user_id = db_user.id if db_user else None
+            org_id = None
+
+            if db_user_id:
+                # Check if user is in an organization
+                membership = await db.orgmembership.find_first(
+                    where={"userId": db_user_id, "isActive": True}
+                )
+                org_id = membership.orgId if membership else None
+
+            # Use contextual engine to load user/org rules
+            engine = ContextualBusinessRulesEngine()
+            await engine.load_context(db, user_id=db_user_id, org_id=org_id)
+            analysis_results = engine.analyze_deals(mapped_data)
+        finally:
+            await db.disconnect()
 
         # Step 5: Complete
         analysis_status_store[analysis_id] = {
