@@ -182,110 +182,13 @@ async def list_prompts(
 ):
     """List all prompts, optionally filtered by category"""
     await require_admin(user_id)
-    
+
     service = get_prompt_service()
     return await service.list_prompts(category, include_versions)
 
 
-@router.get("/{slug}", response_model=PromptResponse)
-async def get_prompt(
-    slug: str,
-    user_id: str = Depends(get_current_user_id)
-):
-    """Get a specific prompt by slug"""
-    await require_admin(user_id)
-    
-    service = get_prompt_service()
-    prompt = await service.get_prompt(slug, include_versions=True)
-    
-    if not prompt:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Prompt not found"
-        )
-    
-    return prompt
-
-
-@router.patch("/{slug}", response_model=PromptResponse)
-async def update_prompt(
-    slug: str,
-    data: PromptUpdate,
-    user_id: str = Depends(get_current_user_id)
-):
-    """Update prompt settings (not content - use versions for that)"""
-    await require_admin(user_id)
-    
-    service = get_prompt_service()
-    prompt = await service.update_prompt(slug, data)
-    
-    if not prompt:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Prompt not found"
-        )
-    
-    return prompt
-
-
-@router.post("/{slug}/versions", response_model=PromptVersionResponse, status_code=status.HTTP_201_CREATED)
-async def create_version(
-    slug: str,
-    data: VersionCreate,
-    set_as_active: bool = True,
-    user_id: str = Depends(get_current_user_id)
-):
-    """Create a new version of a prompt"""
-    await require_admin(user_id)
-    
-    service = get_prompt_service()
-    
-    try:
-        return await service.create_version(slug, data, user_id, set_as_active)
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
-
-
-@router.get("/{slug}/versions", response_model=List[PromptVersionResponse])
-async def list_versions(
-    slug: str,
-    user_id: str = Depends(get_current_user_id)
-):
-    """List all versions of a prompt"""
-    await require_admin(user_id)
-    
-    service = get_prompt_service()
-    prompt = await service.get_prompt(slug, include_versions=True)
-    
-    if not prompt:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Prompt not found"
-        )
-    
-    return prompt.versions or []
-
-
-@router.post("/{slug}/test")
-async def test_prompt(
-    slug: str,
-    request: PromptTestRequest,
-    user_id: str = Depends(get_current_user_id)
-):
-    """Test a prompt with sample data"""
-    await require_admin(user_id)
-    
-    service = get_prompt_service()
-    result = await service.test_prompt(slug, request, user_id)
-    
-    return result
-
-
 # ============================================================
-# Experiment Routes
+# Experiment Routes (must be before /{slug} to avoid conflicts)
 # ============================================================
 
 @router.get("/experiments", response_model=List[ExperimentResponse])
@@ -459,3 +362,119 @@ async def delete_experiment(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Experiment not found"
         )
+
+
+# ============================================================
+# Prompt Slug Routes (must be AFTER /experiments to avoid conflicts)
+# ============================================================
+
+@router.get("/{slug}", response_model=PromptResponse)
+async def get_prompt(
+    slug: str,
+    include_versions: bool = False,
+    user_id: str = Depends(get_current_user_id)
+):
+    """Get a specific prompt by slug"""
+    await require_admin(user_id)
+
+    service = get_prompt_service()
+    prompt = await service.get_prompt_by_slug(slug, include_versions)
+
+    if not prompt:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Prompt not found"
+        )
+
+    return prompt
+
+
+@router.patch("/{slug}", response_model=PromptResponse)
+async def update_prompt(
+    slug: str,
+    data: PromptUpdate,
+    user_id: str = Depends(get_current_user_id)
+):
+    """Update a prompt's configuration (not content - use versions for that)"""
+    await require_admin(user_id)
+
+    service = get_prompt_service()
+    prompt = await service.update_prompt(slug, data)
+
+    if not prompt:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Prompt not found"
+        )
+
+    return prompt
+
+
+@router.post("/{slug}/versions", response_model=PromptVersionResponse, status_code=status.HTTP_201_CREATED)
+async def create_version(
+    slug: str,
+    data: VersionCreate,
+    user_id: str = Depends(get_current_user_id)
+):
+    """Create a new version of a prompt"""
+    await require_admin(user_id)
+
+    service = get_prompt_service()
+
+    try:
+        version = await service.create_version(slug, data, user_id)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
+    if not version:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Prompt not found"
+        )
+
+    return version
+
+
+@router.get("/{slug}/versions", response_model=List[PromptVersionResponse])
+async def list_versions(
+    slug: str,
+    user_id: str = Depends(get_current_user_id)
+):
+    """List all versions of a prompt"""
+    await require_admin(user_id)
+
+    service = get_prompt_service()
+    versions = await service.list_versions(slug)
+
+    if versions is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Prompt not found"
+        )
+
+    return versions
+
+
+@router.post("/{slug}/test")
+async def test_prompt(
+    slug: str,
+    data: PromptTestRequest,
+    user_id: str = Depends(get_current_user_id)
+):
+    """Test a prompt with sample data"""
+    await require_admin(user_id)
+
+    service = get_prompt_service()
+
+    try:
+        result = await service.test_prompt(slug, data)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
+    return result
