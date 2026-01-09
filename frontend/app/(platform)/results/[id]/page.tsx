@@ -23,7 +23,6 @@ import {
   DealsView,
   IssuesView,
   AIInsightsSection,
-  BusinessRulesSection,
 } from "@/components/results"
 import type { DealsFilter, IssuesFilter } from "@/components/results"
 
@@ -395,18 +394,6 @@ export default function ResultsPage() {
               </TabsContent>
             </Tabs>
           </div>
-        </div>
-
-        {/* Business Rules Section */}
-        <div className="mb-8">
-          <BusinessRulesSection
-            issuesByCategory={result.issues_by_category}
-            totalDeals={result.total_deals}
-            dealsWithIssues={result.deals_with_issues}
-            healthScore={result.health_score}
-            onReviewClick={() => setShowWizard(true)}
-            onCategoryClick={handleCategoryClick}
-          />
         </div>
 
         {/* AI Insights Section */}
