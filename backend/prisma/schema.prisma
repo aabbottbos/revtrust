@@ -497,3 +497,192 @@ model GlobalRuleOverride {
   @@index([orgId])
   @@map("global_rule_overrides")
 }
+
+// ===========================================
+// LLM PROVIDER & PROMPT MANAGEMENT
+// ===========================================
+
+model LLMProvider {
+  id              String   @id @default(uuid())
+  name            String   @unique  // "anthropic", "openai", "gemini"
+  displayName     String   // "Anthropic Claude", "OpenAI GPT", "Google Gemini"
+
+  // Encrypted API key (encrypted at rest using Fernet)
+  apiKeyEncrypted String   @db.Text
+
+  // Provider status
+  isActive        Boolean  @default(true)
+
+  // Available models (JSON array)
+  // e.g., ["claude-sonnet-4-20250514", "claude-opus-4-20250514"]
+  availableModels Json     @default("[]")
+
+  // Default model for this provider
+  defaultModel    String?
+
+  // Metadata
+  lastTestedAt    DateTime?
+  testStatus      String?  // "success", "failed", "untested"
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  createdBy       String   // User ID who created
+
+  // Relations
+  prompts         Prompt[]
+  promptVersions  PromptVersion[]
+
+  @@map("llm_providers")
+}
+
+model Prompt {
+  id              String   @id @default(uuid())
+
+  // Unique identifier for the prompt (e.g., "deal_analysis", "field_mapping")
+  slug            String   @unique
+  name            String   // Display name: "Deal Analysis"
+  description     String   @db.Text  // Description of what this prompt does
+  category        PromptCategory
+
+  // Default provider/model for this prompt
+  providerId      String
+  provider        LLMProvider @relation(fields: [providerId], references: [id])
+  model           String   // Default model
+
+  // Active version (when not running an experiment)
+  activeVersionId String?
+
+  // Execution settings
+  maxTokens       Int      @default(2000)
+  temperature     Float    @default(0)
+
+  // Future: org/team customization (nullable for global)
+  organizationId  String?
+
+  // Metadata
+  isSystemPrompt  Boolean  @default(true)  // System prompts cannot be deleted
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  versions        PromptVersion[]
+  experiments     PromptExperiment[]
+  usageLogs       PromptUsageLog[]
+
+  @@index([slug])
+  @@index([category])
+  @@index([organizationId])
+  @@map("prompts")
+}
+
+enum PromptCategory {
+  ANALYSIS
+  MAPPING
+  FORECASTING
+  RESEARCH
+}
+
+model PromptVersion {
+  id              String   @id @default(uuid())
+  promptId        String
+  prompt          Prompt   @relation(fields: [promptId], references: [id], onDelete: Cascade)
+
+  // Version number (auto-increment per prompt)
+  version         Int
+
+  // The actual prompt content (supports template variables)
+  content         String   @db.Text
+
+  // Optional override of provider/model for this version
+  providerId      String?
+  provider        LLMProvider? @relation(fields: [providerId], references: [id])
+  model           String?
+
+  // Metadata
+  changeNote      String?  // "Improved risk factor descriptions"
+  createdAt       DateTime @default(now())
+  createdBy       String   // User ID
+
+  // Relations
+  controlExperiments   PromptExperiment[] @relation("ControlVersion")
+  treatmentExperiments PromptExperiment[] @relation("TreatmentVersion")
+  usageLogs            PromptUsageLog[]
+
+  @@unique([promptId, version])
+  @@index([promptId])
+  @@map("prompt_versions")
+}
+
+enum ExperimentStatus {
+  DRAFT
+  RUNNING
+  COMPLETED
+  CANCELLED
+}
+
+model PromptExperiment {
+  id                  String           @id @default(uuid())
+  promptId            String
+  prompt              Prompt           @relation(fields: [promptId], references: [id], onDelete: Cascade)
+
+  name                String           // "Test new risk scoring prompt"
+  description         String?
+
+  // Variants
+  controlVersionId    String
+  controlVersion      PromptVersion    @relation("ControlVersion", fields: [controlVersionId], references: [id])
+  treatmentVersionId  String
+  treatmentVersion    PromptVersion    @relation("TreatmentVersion", fields: [treatmentVersionId], references: [id])
+
+  // Traffic split (0.0 to 1.0 = % going to treatment)
+  trafficSplit        Float            @default(0.5)
+
+  // Status
+  status              ExperimentStatus @default(DRAFT)
+  startedAt           DateTime?
+  endedAt             DateTime?
+
+  // Results (aggregated metrics)
+  controlInvocations  Int              @default(0)
+  treatmentInvocations Int             @default(0)
+  controlAvgLatencyMs Float?
+  treatmentAvgLatencyMs Float?
+  controlAvgTokens    Float?
+  treatmentAvgTokens  Float?
+  controlErrorRate    Float?
+  treatmentErrorRate  Float?
+
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  createdBy           String
+
+  @@index([promptId, status])
+  @@map("prompt_experiments")
+}
+
+model PromptUsageLog {
+  id              String   @id @default(uuid())
+  promptId        String
+  prompt          Prompt   @relation(fields: [promptId], references: [id], onDelete: Cascade)
+  versionId       String
+  version         PromptVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+
+  // Execution metrics
+  latencyMs       Int
+  inputTokens     Int
+  outputTokens    Int
+  totalTokens     Int
+  success         Boolean
+  errorMessage    String?  @db.Text
+
+  // Context
+  userId          String?
+  experimentId    String?
+
+  createdAt       DateTime @default(now())
+
+  @@index([promptId, createdAt])
+  @@index([versionId])
+  @@index([experimentId])
+  @@map("prompt_usage_logs")
+}

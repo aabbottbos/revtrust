@@ -1,8 +1,8 @@
 """
-Token encryption service for secure storage of OAuth credentials
+Encryption service for secure storage of sensitive data (OAuth credentials, API keys)
 """
 
-from cryptography.fernet import Fernet
+from cryptography.fernet import Fernet, InvalidToken
 import os
 import base64
 
@@ -34,11 +34,59 @@ class EncryptionService:
         if not ciphertext:
             return ""
 
-        encrypted = base64.urlsafe_b64decode(ciphertext.encode())
-        decrypted = self.cipher.decrypt(encrypted)
-        return decrypted.decode()
+        try:
+            encrypted = base64.urlsafe_b64decode(ciphertext.encode())
+            decrypted = self.cipher.decrypt(encrypted)
+            return decrypted.decode()
+        except InvalidToken:
+            raise ValueError("Decryption failed - invalid key or corrupted data")
+
+    def mask_api_key(self, api_key: str, visible_chars: int = 4) -> str:
+        """
+        Mask an API key for display purposes.
+        Shows only the last N characters.
+
+        Args:
+            api_key: The full API key
+            visible_chars: Number of characters to show at the end
+
+        Returns:
+            Masked string like "sk-...abc123"
+        """
+        if not api_key:
+            return ""
+
+        if len(api_key) <= visible_chars:
+            return "*" * len(api_key)
+
+        # Show prefix if it looks like a standard API key format
+        prefix = ""
+        if api_key.startswith("sk-ant-"):
+            prefix = "sk-ant-"
+        elif api_key.startswith("sk-"):
+            prefix = "sk-"
+
+        return f"{prefix}...{api_key[-visible_chars:]}"
+
+
+# Singleton instance
+_encryption_service: EncryptionService | None = None
 
 
 def get_encryption_service() -> EncryptionService:
-    """Get encryption service instance"""
-    return EncryptionService()
+    """Get singleton encryption service instance"""
+    global _encryption_service
+    if _encryption_service is None:
+        _encryption_service = EncryptionService()
+    return _encryption_service
+
+
+def generate_encryption_key() -> str:
+    """
+    Generate a new Fernet encryption key.
+    Useful for initial setup.
+
+    Returns:
+        A valid Fernet key as a string
+    """
+    return Fernet.generate_key().decode()

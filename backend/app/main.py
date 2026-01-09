@@ -8,7 +8,7 @@ import traceback
 import logging
 from dotenv import load_dotenv
 
-from app.routes import analyze, health, ai_analysis, stripe_routes, webhooks, feedback, analytics, admin, crm_oauth, scheduled_reviews, output_templates, organizations, forecast, crm_write, email_test, user, rules
+from app.routes import analyze, health, ai_analysis, stripe_routes, webhooks, feedback, analytics, admin, crm_oauth, scheduled_reviews, output_templates, organizations, forecast, crm_write, email_test, user, rules, admin_prompts
 from app.services.scheduler_service import get_scheduler_service
 
 load_dotenv()
@@ -131,3 +131,4 @@ app.include_router(crm_write.router, tags=["CRM Write"])
 app.include_router(email_test.router, tags=["Email Test"])
 app.include_router(user.router, tags=["User"])
 app.include_router(rules.router, tags=["Rules"])
+app.include_router(admin_prompts.router, tags=["Admin - Prompts"])
