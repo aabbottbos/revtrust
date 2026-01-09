@@ -1,11 +1,11 @@
 "use client"
 
 import { useState } from "react"
-import Link from "next/link"
+import { NavBar } from "@/components/layout/NavBar"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Mail, CheckCircle2, XCircle, AlertCircle, Settings, RefreshCw, ArrowLeft } from "lucide-react"
+import { Mail, CheckCircle2, XCircle, AlertCircle, Settings, RefreshCw } from "lucide-react"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 

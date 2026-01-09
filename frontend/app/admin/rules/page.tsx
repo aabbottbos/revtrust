@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { NavBar } from "@/components/layout/NavBar";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,9 +14,7 @@ import {
   RefreshCw,
   AlertCircle,
   Shield,
-  ArrowLeft,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
 import {
   RulesList,
   RuleEditor,
@@ -39,8 +38,6 @@ import {
 import { useMyOrganizations } from "@/hooks/useOrganization";
 
 export default function RulesPage() {
-  const router = useRouter();
-
   // Data fetching
   const { data: rulesData, loading: rulesLoading, error: rulesError, refetch: refetchRules } = useRules();
   const { metadata, loading: metadataLoading } = useRuleMetadata();
@@ -164,8 +161,9 @@ export default function RulesPage() {
   // Loading state
   if (rulesLoading || metadataLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 p-8">
-        <div className="container mx-auto max-w-7xl">
+      <div className="min-h-screen bg-slate-50">
+        <NavBar />
+        <div className="container mx-auto max-w-7xl p-8">
           <Skeleton className="h-10 w-64 mb-6" />
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             <div className="lg:col-span-1">
@@ -186,8 +184,9 @@ export default function RulesPage() {
   // Error state
   if (rulesError) {
     return (
-      <div className="min-h-screen bg-slate-50 p-8">
-        <div className="container mx-auto max-w-7xl">
+      <div className="min-h-screen bg-slate-50">
+        <NavBar />
+        <div className="container mx-auto max-w-7xl p-8">
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
@@ -205,23 +204,19 @@ export default function RulesPage() {
   const orgRules = customRules.filter((r) => r.orgId);
 
   return (
-    <div className="min-h-screen bg-slate-50 p-8">
-      <div className="container mx-auto max-w-7xl">
+    <div className="min-h-screen bg-slate-50">
+      <NavBar />
+      <div className="container mx-auto max-w-7xl p-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => router.push("/admin")}>
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-                <Shield className="h-6 w-6 text-revtrust-blue" />
-                Business Rules Configuration
-              </h1>
-              <p className="text-slate-500 text-sm">
-                Manage global rules and create custom rules for your analysis
-              </p>
-            </div>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+              <Shield className="h-6 w-6 text-revtrust-blue" />
+              Business Rules Configuration
+            </h1>
+            <p className="text-slate-500 text-sm">
+              Manage global rules and create custom rules for your analysis
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <Button

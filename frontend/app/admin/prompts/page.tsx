@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { NavBar } from "@/components/layout/NavBar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -414,6 +415,7 @@ function ExperimentsTab() {
 export default function AdminPromptsPage() {
   return (
     <div className="min-h-screen bg-slate-50">
+      <NavBar />
       <div className="container mx-auto py-8 px-4 max-w-7xl">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-slate-900">AI Configuration</h1>

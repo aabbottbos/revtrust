@@ -1,0 +1,22 @@
+Opportunity Name,Account,Deal Amount,Expected Close,Stage Name,Probability %,Owner,Contact,Last Activity,Next Steps,Lead Source
+Standard Discovery Deal,TechStart Inc,10000,2025-02-15,Discovery,10,John Doe,john@techstart.io,2025-01-08,Schedule follow up demo,Inbound
+Standard Qualification Deal,Growth Co,25000,2025-03-01,Qualification,20,Jane Smith,jane@growth.co,2025-01-05,,Referral
+Standard Proposal Deal,Enterprise Corp,150000,2025-02-28,Proposal,50,Mike Johnson,mike@enterprise.com,2025-01-09,,LinkedIn
+Standard Negotiation Deal,Mega Corp,500000,2025-01-31,Negotiation,80,Sarah Wilson,sarah@mega.corp,2025-01-07,Final legal review,Conference
+Standard Closed Won,Trusted Partners,75000,2024-12-15,Closed Won,100,John Doe,tom@trusted.com,2024-12-15,,
+Standard Closed Lost,Ghosted Inc,5000,2024-11-01,Closed Lost,0,Bob Brown,ghost@ghosted.com,2024-10-15,,Cold Call
+Date Format MM/DD/YYYY,Date Test LLC,12000,04/15/2025,Discovery,15,Alice Green,alice@datetest.com,01/05/2025,,
+Date Format Month D YYYY,Format Inc,99000,"Jun 30, 2025",Proposal,45,Charlie Black,charlie@format.com,"Jan 01, 2025",,
+Currency With Symbol,Money Corp,"$1,250,000",2025-06-30,Negotiation,75,David White,david@money.com,2025-01-02,,
+Currency No Commas,Simple Startup,5500,2025-02-01,Discovery,10,Eva Gray,eva@simple.com,2025-01-08,,Webinar
+High Probability Early Stage,Optimistic LLC,100000,2025-05-15,Discovery,90,Frank Blue,frank@optimistic.com,2025-01-09,,
+Low Probability Late Stage,Pessimistic Inc,20000,2025-01-20,Negotiation,10,Grace Red,grace@pessimistic.com,2025-01-06,,
+Missing Optional Fields,Minimalist Co,3000,2025-04-01,Qualification,20,Hank Yellow,hank@minimalist.com,2025-01-08,,
+Special Char Account,A&B Solutions + Partners,45000,2025-03-15,Proposal,60,Ivy Purple,ivy@ab.com,2025-01-03,,
+Zero Amount Deal,Free Trial Inc,0,2025-02-28,Closed Won,100,Jack Orange,jack@free.com,2025-01-01,,
+European Format Date,Euro Corp,50000,31/12/2025,Discovery,10,Kelly Teal,kelly@euro.com,01/10/2024,,
+Past Expected Close Open,Lagging Inc,15000,2023-01-01,Negotiation,70,Larry Gold,larry@lagging.com,2024-12-01,Update close date,
+Future Created Date,Time Travelers,1000000,2026-01-01,Discovery,5,Marty McFly,marty@future.com,2025-01-09,,
+Case Insensitive Stage,lowercase ltd,25000,2025-03-30,proposal,50,Nancy Silver,nancy@lowercase.com,2025-01-08,,
+Case Insensitive Stage 2,UPPERCASE INC,75000,2025-04-15,NEGOTIATION,80,Oscar Bronze,oscar@upper.com,2025-01-07,,
+Whitespace Trim Test, Spaced Out LLC , 50000 , 2025-05-01, Qualification , 30, Paul Wood, paul@spaced.com, 2025-01-05,,
