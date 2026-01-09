@@ -11,8 +11,13 @@ import {
   Activity,
   CheckCircle2,
   XCircle,
-  Loader2
+  Loader2,
+  Mail,
+  MessageSquare,
+  BookOpen,
+  ChevronRight
 } from "lucide-react"
+import Link from "next/link"
 
 interface AdminMetrics {
   users: {
@@ -101,6 +106,60 @@ export default function AdminDashboard() {
           <p className="text-slate-600">
             Last updated: {new Date(metrics.updated_at).toLocaleString()}
           </p>
+        </div>
+
+        {/* Admin Tools Navigation */}
+        <div className="grid md:grid-cols-3 gap-4 mb-8">
+          <Link href="/admin/prompts">
+            <Card className="p-4 hover:bg-slate-50 transition-colors cursor-pointer group">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-purple-100 rounded-lg">
+                    <MessageSquare className="w-5 h-5 text-purple-600" />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-slate-900">Prompts & LLM</div>
+                    <div className="text-sm text-slate-600">Manage AI prompts & providers</div>
+                  </div>
+                </div>
+                <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-slate-600" />
+              </div>
+            </Card>
+          </Link>
+
+          <Link href="/admin/rules">
+            <Card className="p-4 hover:bg-slate-50 transition-colors cursor-pointer group">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <BookOpen className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-slate-900">Business Rules</div>
+                    <div className="text-sm text-slate-600">Configure deal analysis rules</div>
+                  </div>
+                </div>
+                <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-slate-600" />
+              </div>
+            </Card>
+          </Link>
+
+          <Link href="/admin/email-test">
+            <Card className="p-4 hover:bg-slate-50 transition-colors cursor-pointer group">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-orange-100 rounded-lg">
+                    <Mail className="w-5 h-5 text-orange-600" />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-slate-900">Email Test</div>
+                    <div className="text-sm text-slate-600">Test Resend configuration</div>
+                  </div>
+                </div>
+                <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-slate-600" />
+              </div>
+            </Card>
+          </Link>
         </div>
 
         {/* Key Metrics Cards */}

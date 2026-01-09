@@ -5,7 +5,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Mail, CheckCircle2, XCircle, AlertCircle, Settings, RefreshCw } from "lucide-react"
+import { Mail, CheckCircle2, XCircle, AlertCircle, Settings, RefreshCw, ArrowLeft } from "lucide-react"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
@@ -115,8 +115,11 @@ export default function EmailTestPage() {
                 Debug Tool
               </span>
             </div>
-            <Link href="/">
-              <Button variant="ghost">Back to Home</Button>
+            <Link href="/admin">
+              <Button variant="ghost">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back to Admin
+              </Button>
             </Link>
           </div>
         </div>
