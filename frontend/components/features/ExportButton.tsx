@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Download, Copy, Check, Loader2, Printer, Link } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { useAuthenticatedFetch } from "@/hooks/useAuthenticatedFetch"
 
 interface ExportButtonProps {
   analysisId: string
@@ -21,16 +22,14 @@ export function ExportButton({ analysisId, filename }: ExportButtonProps) {
   const [copied, setCopied] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const { toast } = useToast()
+  const authenticatedFetch = useAuthenticatedFetch()
 
   const handleDownloadCSV = async () => {
     try {
       setDownloading(true)
 
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/analysis/${analysisId}/export/csv`,
-        {
-          credentials: 'include',
-        }
+      const response = await authenticatedFetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/analysis/${analysisId}/export/csv`
       )
 
       if (!response.ok) {
@@ -77,11 +76,8 @@ export function ExportButton({ analysisId, filename }: ExportButtonProps) {
     try {
       setCopying(true)
 
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/analysis/${analysisId}/export/summary`,
-        {
-          credentials: 'include',
-        }
+      const response = await authenticatedFetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/analysis/${analysisId}/export/summary`
       )
 
       if (!response.ok) {

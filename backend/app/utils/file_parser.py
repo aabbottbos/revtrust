@@ -274,6 +274,9 @@ class DataCleaner:
             # Handle pandas NA/NaN
             if pd.isna(value):
                 cleaned[key] = None
+            # Convert pandas Timestamp to ISO string for JSON serialization
+            elif isinstance(value, pd.Timestamp):
+                cleaned[key] = value.isoformat()
             # Convert to string and strip if needed
             elif isinstance(value, str):
                 cleaned[key] = value.strip() if value.strip() else None
