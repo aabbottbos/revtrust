@@ -50,13 +50,7 @@ async def get_admin_metrics(
         # Get last 10 signups
         latest_users = await prisma.user.find_many(
             take=10,
-            order_by={"createdAt": "desc"},
-            select={
-                "email": True,
-                "createdAt": True,
-                "subscriptionTier": True,
-                "subscriptionStatus": True
-            }
+            order={"createdAt": "desc"}
         )
 
         # Total analyses

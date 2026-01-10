@@ -1,8 +1,10 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { NavBar } from "@/components/layout/NavBar"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import {
   Users,
@@ -15,9 +17,22 @@ import {
   Mail,
   MessageSquare,
   BookOpen,
-  ChevronRight
+  ChevronRight,
+  Database,
+  Server,
+  RefreshCw,
+  ExternalLink,
+  AlertCircle
 } from "lucide-react"
 import Link from "next/link"
+
+interface HealthStatus {
+  status: "healthy" | "unhealthy"
+  database: string
+  user_count: number
+  timestamp: string
+  error?: string
+}
 
 interface AdminMetrics {
   users: {
@@ -47,71 +62,160 @@ interface AdminMetrics {
 }
 
 export default function AdminDashboard() {
+  const [health, setHealth] = useState<HealthStatus | null>(null)
   const [metrics, setMetrics] = useState<AdminMetrics | null>(null)
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+  const environment = apiUrl.includes("localhost") ? "development" : "production"
+
   useEffect(() => {
-    fetchMetrics()
+    fetchAll()
   }, [])
 
+  const fetchHealth = async () => {
+    try {
+      const res = await fetch(`${apiUrl}/api/admin/health-check`)
+      if (res.ok) {
+        return await res.json()
+      }
+      return { status: "unhealthy", database: "error", error: "Failed to connect" }
+    } catch {
+      return { status: "unhealthy", database: "error", error: "API unreachable" }
+    }
+  }
+
   const fetchMetrics = async () => {
+    const res = await fetch(`${apiUrl}/api/admin/metrics`, {
+      credentials: "include"
+    })
+    if (!res.ok) {
+      throw new Error("Failed to fetch metrics")
+    }
+    return await res.json()
+  }
+
+  const fetchAll = async () => {
     try {
       setLoading(true)
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/metrics`, {
-        credentials: "include"
-      })
-
-      if (!res.ok) {
-        throw new Error("Failed to fetch metrics")
-      }
-
-      const data = await res.json()
-      setMetrics(data)
+      setError(null)
+      const [healthData, metricsData] = await Promise.all([
+        fetchHealth(),
+        fetchMetrics()
+      ])
+      setHealth(healthData)
+      setMetrics(metricsData)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load metrics")
+      setError(err instanceof Error ? err.message : "Failed to load data")
     } finally {
       setLoading(false)
     }
   }
 
+  const handleRefresh = async () => {
+    setRefreshing(true)
+    await fetchAll()
+    setRefreshing(false)
+  }
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="w-8 h-8 animate-spin text-revtrust-blue" />
+      <div className="flex items-center justify-center min-h-screen bg-slate-50">
+        <Loader2 className="w-8 h-8 animate-spin text-slate-600" />
       </div>
     )
   }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Card className="p-6">
-          <p className="text-red-600">{error}</p>
-        </Card>
-      </div>
-    )
-  }
-
-  if (!metrics) return null
 
   return (
-    <div className="min-h-screen bg-slate-50 p-8">
-      <div className="container mx-auto max-w-7xl">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">
-            RevTrust Admin Dashboard
-          </h1>
-          <p className="text-slate-600">
-            Last updated: {new Date(metrics.updated_at).toLocaleString()}
-          </p>
+    <div className="min-h-screen bg-slate-50">
+      <NavBar />
+      <div className="container mx-auto max-w-6xl p-8">
+        {/* Header with Environment Badge */}
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <div className="flex items-center gap-3 mb-1">
+              <h1 className="text-2xl font-bold text-slate-900">Admin Dashboard</h1>
+              <Badge
+                variant="outline"
+                className={environment === "development"
+                  ? "bg-yellow-50 text-yellow-700 border-yellow-300"
+                  : "bg-green-50 text-green-700 border-green-300"
+                }
+              >
+                {environment}
+              </Badge>
+            </div>
+            <p className="text-sm text-slate-500">
+              {metrics?.updated_at && `Last updated: ${new Date(metrics.updated_at).toLocaleString()}`}
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={refreshing}
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
         </div>
 
-        {/* Admin Tools Navigation */}
+        {/* System Health Bar */}
+        <Card className="p-4 mb-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-2">
+                <Server className="w-4 h-4 text-slate-500" />
+                <span className="text-sm text-slate-600">API:</span>
+                {health?.status === "healthy" ? (
+                  <CheckCircle2 className="w-4 h-4 text-green-500" />
+                ) : (
+                  <XCircle className="w-4 h-4 text-red-500" />
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <Database className="w-4 h-4 text-slate-500" />
+                <span className="text-sm text-slate-600">Database:</span>
+                {health?.database === "connected" ? (
+                  <CheckCircle2 className="w-4 h-4 text-green-500" />
+                ) : (
+                  <XCircle className="w-4 h-4 text-red-500" />
+                )}
+              </div>
+              {health?.error && (
+                <div className="flex items-center gap-2 text-red-600">
+                  <AlertCircle className="w-4 h-4" />
+                  <span className="text-sm">{health.error}</span>
+                </div>
+              )}
+            </div>
+            <Link
+              href={`${apiUrl}/docs`}
+              target="_blank"
+              className="text-sm text-slate-500 hover:text-slate-700 flex items-center gap-1"
+            >
+              API Docs <ExternalLink className="w-3 h-3" />
+            </Link>
+          </div>
+        </Card>
+
+        {/* Error Display */}
+        {error && (
+          <Card className="p-4 mb-6 border-red-200 bg-red-50">
+            <div className="flex items-center gap-2 text-red-700">
+              <AlertCircle className="w-5 h-5" />
+              <span>{error}</span>
+            </div>
+          </Card>
+        )}
+
+        {/* Admin Tools - Primary Navigation */}
+        <h2 className="text-lg font-semibold text-slate-700 mb-3">Admin Tools</h2>
         <div className="grid md:grid-cols-3 gap-4 mb-8">
           <Link href="/admin/prompts">
-            <Card className="p-4 hover:bg-slate-50 transition-colors cursor-pointer group">
+            <Card className="p-5 hover:border-purple-300 hover:shadow-md transition-all cursor-pointer group h-full">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-purple-100 rounded-lg">
@@ -119,16 +223,16 @@ export default function AdminDashboard() {
                   </div>
                   <div>
                     <div className="font-semibold text-slate-900">Prompts & LLM</div>
-                    <div className="text-sm text-slate-600">Manage AI prompts & providers</div>
+                    <div className="text-sm text-slate-500">Manage AI prompts & providers</div>
                   </div>
                 </div>
-                <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-slate-600" />
+                <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-purple-500 transition-colors" />
               </div>
             </Card>
           </Link>
 
           <Link href="/admin/rules">
-            <Card className="p-4 hover:bg-slate-50 transition-colors cursor-pointer group">
+            <Card className="p-5 hover:border-blue-300 hover:shadow-md transition-all cursor-pointer group h-full">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-blue-100 rounded-lg">
@@ -136,16 +240,16 @@ export default function AdminDashboard() {
                   </div>
                   <div>
                     <div className="font-semibold text-slate-900">Business Rules</div>
-                    <div className="text-sm text-slate-600">Configure deal analysis rules</div>
+                    <div className="text-sm text-slate-500">Configure deal analysis rules</div>
                   </div>
                 </div>
-                <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-slate-600" />
+                <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-blue-500 transition-colors" />
               </div>
             </Card>
           </Link>
 
           <Link href="/admin/email-test">
-            <Card className="p-4 hover:bg-slate-50 transition-colors cursor-pointer group">
+            <Card className="p-5 hover:border-orange-300 hover:shadow-md transition-all cursor-pointer group h-full">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-orange-100 rounded-lg">
@@ -153,181 +257,99 @@ export default function AdminDashboard() {
                   </div>
                   <div>
                     <div className="font-semibold text-slate-900">Email Test</div>
-                    <div className="text-sm text-slate-600">Test Resend configuration</div>
+                    <div className="text-sm text-slate-500">Test Resend configuration</div>
                   </div>
                 </div>
-                <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-slate-600" />
+                <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-orange-500 transition-colors" />
               </div>
             </Card>
           </Link>
         </div>
 
-        {/* Key Metrics Cards */}
-        <div className="grid md:grid-cols-4 gap-6 mb-8">
-          <Card className="p-6">
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-sm text-slate-600 font-medium">Total Users</div>
-              <Users className="w-5 h-5 text-revtrust-blue" />
-            </div>
-            <div className="text-3xl font-bold text-slate-900">
-              {metrics.users.total}
-            </div>
-            <div className="text-sm text-slate-600 mt-1">
-              +{metrics.users.recent_signups_30d} this month
-            </div>
-          </Card>
-
-          <Card className="p-6">
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-sm text-slate-600 font-medium">Pro Users</div>
-              <CheckCircle2 className="w-5 h-5 text-green-600" />
-            </div>
-            <div className="text-3xl font-bold text-green-600">
-              {metrics.users.pro}
-            </div>
-            <div className="text-sm text-slate-600 mt-1">
-              {metrics.users.free} free users
-            </div>
-          </Card>
-
-          <Card className="p-6">
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-sm text-slate-600 font-medium">MRR</div>
-              <DollarSign className="w-5 h-5 text-blue-600" />
-            </div>
-            <div className="text-3xl font-bold text-blue-600">
-              ${metrics.revenue.mrr.toLocaleString()}
-            </div>
-            <div className="text-sm text-slate-600 mt-1">
-              ${metrics.revenue.arr.toLocaleString()} ARR
-            </div>
-          </Card>
-
-          <Card className="p-6">
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-sm text-slate-600 font-medium">Conversion</div>
-              <TrendingUp className="w-5 h-5 text-orange-600" />
-            </div>
-            <div className="text-3xl font-bold text-orange-600">
-              {metrics.metrics.conversion_rate}%
-            </div>
-            <div className="text-sm text-slate-600 mt-1">
-              {metrics.metrics.churn_rate}% churn
-            </div>
-          </Card>
-        </div>
-
-        <div className="grid md:grid-cols-2 gap-6 mb-8">
-          {/* Usage Stats */}
-          <Card className="p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Activity className="w-5 h-5 text-revtrust-blue" />
-              <h2 className="text-xl font-bold text-slate-900">Usage Stats</h2>
-            </div>
-
-            <Separator className="mb-4" />
-
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-slate-600">Total Analyses</span>
-                <span className="font-bold text-lg">
-                  {metrics.metrics.total_analyses}
-                </span>
-              </div>
-
-              <div className="flex justify-between items-center">
-                <span className="text-slate-600">This Month</span>
-                <span className="font-bold text-lg text-green-600">
-                  {metrics.metrics.analyses_this_month}
-                </span>
-              </div>
-
-              <div className="flex justify-between items-center">
-                <span className="text-slate-600">Avg per User</span>
-                <span className="font-bold text-lg">
-                  {(metrics.metrics.total_analyses / Math.max(metrics.users.total, 1)).toFixed(1)}
-                </span>
-              </div>
-            </div>
-          </Card>
-
-          {/* Revenue Projections */}
-          <Card className="p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <DollarSign className="w-5 h-5 text-green-600" />
-              <h2 className="text-xl font-bold text-slate-900">Revenue</h2>
-            </div>
-
-            <Separator className="mb-4" />
-
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-slate-600">MRR</span>
-                <span className="font-bold text-lg">
-                  ${metrics.revenue.mrr.toLocaleString()}
-                </span>
-              </div>
-
-              <div className="flex justify-between items-center">
-                <span className="text-slate-600">ARR</span>
-                <span className="font-bold text-lg text-blue-600">
-                  ${metrics.revenue.arr.toLocaleString()}
-                </span>
-              </div>
-
-              <div className="flex justify-between items-center">
-                <span className="text-slate-600">Est. LTV (2yr)</span>
-                <span className="font-bold text-lg text-green-600">
-                  ${metrics.revenue.ltv_estimate.toLocaleString()}
-                </span>
-              </div>
-            </div>
-          </Card>
-        </div>
-
-        {/* Recent Signups */}
-        <Card className="p-6">
-          <h2 className="text-xl font-bold text-slate-900 mb-4">
-            Recent Signups
-          </h2>
-
-          <Separator className="mb-4" />
-
-          <div className="space-y-3">
-            {metrics.users.latest.map((user, i) => (
-              <div
-                key={i}
-                className="flex items-center justify-between py-3 px-4 bg-slate-50 rounded-lg"
-              >
-                <div className="flex-1">
-                  <div className="font-medium text-slate-900">{user.email}</div>
-                  <div className="text-sm text-slate-600">
-                    {new Date(user.createdAt).toLocaleDateString()}
-                  </div>
+        {/* Metrics Summary Row */}
+        {metrics && (
+          <>
+            <h2 className="text-lg font-semibold text-slate-700 mb-3">Quick Stats</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+              <Card className="p-4">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-slate-500 uppercase tracking-wide">Users</span>
+                  <Users className="w-4 h-4 text-slate-400" />
                 </div>
+                <div className="text-2xl font-bold text-slate-900">{metrics.users.total}</div>
+                <div className="text-xs text-slate-500">{metrics.users.pro} pro / {metrics.users.free} free</div>
+              </Card>
 
-                <div className="flex items-center gap-2">
-                  <Badge
-                    variant={user.tier === "pro" ? "default" : "secondary"}
-                    className={
-                      user.tier === "pro"
-                        ? "bg-green-100 text-green-800 hover:bg-green-200"
-                        : ""
-                    }
-                  >
-                    {user.tier}
-                  </Badge>
-
-                  {user.status === "active" ? (
-                    <CheckCircle2 className="w-4 h-4 text-green-600" />
-                  ) : (
-                    <XCircle className="w-4 h-4 text-slate-400" />
-                  )}
+              <Card className="p-4">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-slate-500 uppercase tracking-wide">MRR</span>
+                  <DollarSign className="w-4 h-4 text-slate-400" />
                 </div>
-              </div>
-            ))}
-          </div>
-        </Card>
+                <div className="text-2xl font-bold text-slate-900">${metrics.revenue.mrr.toLocaleString()}</div>
+                <div className="text-xs text-slate-500">${metrics.revenue.arr.toLocaleString()} ARR</div>
+              </Card>
+
+              <Card className="p-4">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-slate-500 uppercase tracking-wide">Analyses</span>
+                  <Activity className="w-4 h-4 text-slate-400" />
+                </div>
+                <div className="text-2xl font-bold text-slate-900">{metrics.metrics.total_analyses}</div>
+                <div className="text-xs text-slate-500">{metrics.metrics.analyses_this_month} this month</div>
+              </Card>
+
+              <Card className="p-4">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-slate-500 uppercase tracking-wide">Conversion</span>
+                  <TrendingUp className="w-4 h-4 text-slate-400" />
+                </div>
+                <div className="text-2xl font-bold text-slate-900">{metrics.metrics.conversion_rate}%</div>
+                <div className="text-xs text-slate-500">{metrics.metrics.churn_rate}% churn</div>
+              </Card>
+            </div>
+
+            {/* Recent Signups */}
+            <h2 className="text-lg font-semibold text-slate-700 mb-3">Recent Signups</h2>
+            <Card className="p-4">
+              {metrics.users.latest.length === 0 ? (
+                <p className="text-sm text-slate-500 text-center py-4">No recent signups</p>
+              ) : (
+                <div className="space-y-2">
+                  {metrics.users.latest.slice(0, 5).map((user, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center justify-between py-2 px-3 bg-slate-50 rounded"
+                    >
+                      <div>
+                        <span className="text-sm font-medium text-slate-900">{user.email}</span>
+                        <span className="text-xs text-slate-500 ml-2">
+                          {new Date(user.createdAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          variant="outline"
+                          className={
+                            user.tier === "pro"
+                              ? "bg-green-50 text-green-700 border-green-200"
+                              : "bg-slate-50 text-slate-600 border-slate-200"
+                          }
+                        >
+                          {user.tier}
+                        </Badge>
+                        {user.status === "active" ? (
+                          <CheckCircle2 className="w-4 h-4 text-green-500" />
+                        ) : (
+                          <XCircle className="w-4 h-4 text-slate-400" />
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+          </>
+        )}
       </div>
     </div>
   )
