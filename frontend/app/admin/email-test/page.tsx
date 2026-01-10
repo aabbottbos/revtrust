@@ -104,27 +104,7 @@ export default function EmailTestPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <nav className="border-b bg-white sticky top-0 z-50">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-2">
-              <Mail className="h-6 w-6 text-blue-600" />
-              <span className="font-bold text-xl">Email Test</span>
-              <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full font-medium">
-                Debug Tool
-              </span>
-            </div>
-            <Link href="/admin">
-              <Button variant="ghost">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Admin
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </nav>
-
+      <NavBar />
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="grid gap-6">
           {/* Info Banner */}
