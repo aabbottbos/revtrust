@@ -6,7 +6,7 @@ from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
-from app.auth import get_current_user_id
+from app.auth import require_system_admin
 from app.services.llm_provider_service import (
     get_llm_provider_service,
     ProviderCreate,
@@ -33,37 +33,14 @@ router = APIRouter(prefix="/api/admin/prompts", tags=["Admin - Prompts"])
 
 
 # ============================================================
-# Helper function for admin check
-# TODO: Implement proper admin role checking once user roles are defined
-# ============================================================
-
-async def require_admin(user_id: str) -> str:
-    """
-    Check if user is an admin.
-    For now, we allow all authenticated users.
-    TODO: Implement proper admin role checking.
-    """
-    if not user_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication required"
-        )
-    # TODO: Check if user has admin role
-    # For now, allow all authenticated users in development
-    return user_id
-
-
-# ============================================================
 # LLM Provider Routes
 # ============================================================
 
 @router.get("/providers", response_model=List[ProviderResponse])
 async def list_providers(
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(require_system_admin)
 ):
-    """List all configured LLM providers"""
-    await require_admin(user_id)
-    
+    """List all configured LLM providers. Requires admin access."""
     service = get_llm_provider_service()
     return await service.list_providers()
 
@@ -71,11 +48,9 @@ async def list_providers(
 @router.get("/providers/{provider_id}", response_model=ProviderResponse)
 async def get_provider(
     provider_id: str,
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(require_system_admin)
 ):
-    """Get a specific provider by ID"""
-    await require_admin(user_id)
-    
+    """Get a specific provider by ID. Requires admin access."""
     service = get_llm_provider_service()
     provider = await service.get_provider(provider_id)
     
@@ -91,11 +66,9 @@ async def get_provider(
 @router.post("/providers", response_model=ProviderResponse, status_code=status.HTTP_201_CREATED)
 async def create_provider(
     data: ProviderCreate,
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(require_system_admin)
 ):
-    """Create a new LLM provider configuration"""
-    await require_admin(user_id)
-    
+    """Create a new LLM provider configuration. Requires admin access."""
     # Validate provider name
     valid_providers = ["anthropic", "openai", "gemini"]
     if data.name.lower() not in valid_providers:
@@ -121,11 +94,9 @@ async def create_provider(
 async def update_provider(
     provider_id: str,
     data: ProviderUpdate,
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(require_system_admin)
 ):
-    """Update an existing provider"""
-    await require_admin(user_id)
-    
+    """Update an existing provider. Requires admin access."""
     service = get_llm_provider_service()
     provider = await service.update_provider(provider_id, data)
     
@@ -141,11 +112,9 @@ async def update_provider(
 @router.delete("/providers/{provider_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_provider(
     provider_id: str,
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(require_system_admin)
 ):
-    """Delete a provider"""
-    await require_admin(user_id)
-    
+    """Delete a provider. Requires admin access."""
     service = get_llm_provider_service()
     success = await service.delete_provider(provider_id)
     
@@ -159,11 +128,9 @@ async def delete_provider(
 @router.post("/providers/{provider_id}/test")
 async def test_provider(
     provider_id: str,
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(require_system_admin)
 ):
-    """Test a provider's API connection"""
-    await require_admin(user_id)
-    
+    """Test a provider's API connection. Requires admin access."""
     service = get_llm_provider_service()
     result = await service.test_provider(provider_id)
     
@@ -178,11 +145,9 @@ async def test_provider(
 async def list_prompts(
     category: Optional[str] = None,
     include_versions: bool = False,
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(require_system_admin)
 ):
-    """List all prompts, optionally filtered by category"""
-    await require_admin(user_id)
-
+    """List all prompts, optionally filtered by category. Requires admin access."""
     service = get_prompt_service()
     return await service.list_prompts(category, include_versions)
 
@@ -194,24 +159,20 @@ async def list_prompts(
 @router.get("/experiments", response_model=List[ExperimentResponse])
 async def list_experiments(
     prompt_id: Optional[str] = None,
-    status: Optional[str] = None,
-    user_id: str = Depends(get_current_user_id)
+    exp_status: Optional[str] = None,
+    user_id: str = Depends(require_system_admin)
 ):
-    """List all experiments"""
-    await require_admin(user_id)
-    
+    """List all experiments. Requires admin access."""
     service = get_experiment_service()
-    return await service.list_experiments(prompt_id, status)
+    return await service.list_experiments(prompt_id, exp_status)
 
 
 @router.get("/experiments/{experiment_id}", response_model=ExperimentResponse)
 async def get_experiment(
     experiment_id: str,
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(require_system_admin)
 ):
-    """Get a specific experiment"""
-    await require_admin(user_id)
-    
+    """Get a specific experiment. Requires admin access."""
     service = get_experiment_service()
     experiment = await service.get_experiment(experiment_id)
     
@@ -227,13 +188,11 @@ async def get_experiment(
 @router.post("/experiments", response_model=ExperimentResponse, status_code=status.HTTP_201_CREATED)
 async def create_experiment(
     data: ExperimentCreate,
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(require_system_admin)
 ):
-    """Create a new A/B experiment"""
-    await require_admin(user_id)
-    
+    """Create a new A/B experiment. Requires admin access."""
     service = get_experiment_service()
-    
+
     try:
         return await service.create_experiment(data, user_id)
     except ValueError as e:
@@ -247,13 +206,11 @@ async def create_experiment(
 async def update_experiment(
     experiment_id: str,
     data: ExperimentUpdate,
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(require_system_admin)
 ):
-    """Update an experiment (name, description, traffic split, status)"""
-    await require_admin(user_id)
-    
+    """Update an experiment. Requires admin access."""
     service = get_experiment_service()
-    
+
     try:
         experiment = await service.update_experiment(experiment_id, data)
     except ValueError as e:
@@ -274,13 +231,11 @@ async def update_experiment(
 @router.post("/experiments/{experiment_id}/start", response_model=ExperimentResponse)
 async def start_experiment(
     experiment_id: str,
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(require_system_admin)
 ):
-    """Start an experiment"""
-    await require_admin(user_id)
-    
+    """Start an experiment. Requires admin access."""
     service = get_experiment_service()
-    
+
     try:
         experiment = await service.start_experiment(experiment_id)
     except ValueError as e:
@@ -302,11 +257,9 @@ async def start_experiment(
 async def stop_experiment(
     experiment_id: str,
     mark_completed: bool = True,
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(require_system_admin)
 ):
-    """Stop an experiment"""
-    await require_admin(user_id)
-    
+    """Stop an experiment. Requires admin access."""
     service = get_experiment_service()
     experiment = await service.stop_experiment(experiment_id, mark_completed)
     
@@ -322,11 +275,9 @@ async def stop_experiment(
 @router.get("/experiments/{experiment_id}/results", response_model=ExperimentResults)
 async def get_experiment_results(
     experiment_id: str,
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(require_system_admin)
 ):
-    """Get detailed results for an experiment"""
-    await require_admin(user_id)
-    
+    """Get detailed results for an experiment. Requires admin access."""
     service = get_experiment_service()
     results = await service.get_experiment_results(experiment_id)
     
@@ -342,13 +293,11 @@ async def get_experiment_results(
 @router.delete("/experiments/{experiment_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_experiment(
     experiment_id: str,
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(require_system_admin)
 ):
-    """Delete an experiment"""
-    await require_admin(user_id)
-    
+    """Delete an experiment. Requires admin access."""
     service = get_experiment_service()
-    
+
     try:
         success = await service.delete_experiment(experiment_id)
     except ValueError as e:
@@ -372,11 +321,9 @@ async def delete_experiment(
 async def get_prompt(
     slug: str,
     include_versions: bool = False,
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(require_system_admin)
 ):
-    """Get a specific prompt by slug"""
-    await require_admin(user_id)
-
+    """Get a specific prompt by slug. Requires admin access."""
     service = get_prompt_service()
     prompt = await service.get_prompt_by_slug(slug, include_versions)
 
@@ -393,11 +340,9 @@ async def get_prompt(
 async def update_prompt(
     slug: str,
     data: PromptUpdate,
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(require_system_admin)
 ):
-    """Update a prompt's configuration (not content - use versions for that)"""
-    await require_admin(user_id)
-
+    """Update a prompt's configuration. Requires admin access."""
     service = get_prompt_service()
     prompt = await service.update_prompt(slug, data)
 
@@ -414,11 +359,9 @@ async def update_prompt(
 async def create_version(
     slug: str,
     data: VersionCreate,
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(require_system_admin)
 ):
-    """Create a new version of a prompt"""
-    await require_admin(user_id)
-
+    """Create a new version of a prompt. Requires admin access."""
     service = get_prompt_service()
 
     try:
@@ -441,11 +384,9 @@ async def create_version(
 @router.get("/{slug}/versions", response_model=List[PromptVersionResponse])
 async def list_versions(
     slug: str,
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(require_system_admin)
 ):
-    """List all versions of a prompt"""
-    await require_admin(user_id)
-
+    """List all versions of a prompt. Requires admin access."""
     service = get_prompt_service()
     versions = await service.list_versions(slug)
 
@@ -462,11 +403,9 @@ async def list_versions(
 async def test_prompt(
     slug: str,
     data: PromptTestRequest,
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(require_system_admin)
 ):
-    """Test a prompt with sample data"""
-    await require_admin(user_id)
-
+    """Test a prompt with sample data. Requires admin access."""
     service = get_prompt_service()
 
     try:

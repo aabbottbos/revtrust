@@ -1,13 +1,16 @@
 """
 Email Test Route - For debugging Resend configuration
+Admin-only endpoint for testing email configuration.
 """
 
 import os
 import httpx
 import logging
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
+
+from app.auth import require_system_admin
 
 router = APIRouter(prefix="/api/email-test", tags=["Email Test"])
 logger = logging.getLogger(__name__)
@@ -34,10 +37,13 @@ class EmailTestResponse(BaseModel):
 
 
 @router.post("", response_model=EmailTestResponse)
-async def send_test_email(request: EmailTestRequest):
+async def send_test_email(
+    request: EmailTestRequest,
+    user_id: str = Depends(require_system_admin)
+):
     """
     Send a test email to verify Resend configuration.
-    Includes extensive logging for debugging.
+    Requires admin access.
     """
     # Get config at request time (after dotenv loaded)
     resend_api_key = get_resend_api_key()
@@ -224,9 +230,11 @@ async def send_test_email(request: EmailTestRequest):
 
 
 @router.get("/config")
-async def get_email_config():
+async def get_email_config(
+    user_id: str = Depends(require_system_admin)
+):
     """
-    Check email configuration status (no sensitive data exposed)
+    Check email configuration status. Requires admin access.
     """
     # Get config at request time
     resend_api_key = get_resend_api_key()

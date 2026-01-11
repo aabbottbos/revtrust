@@ -22,6 +22,9 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
+  // Admin access
+  isAdmin       Boolean   @default(false)
+
   // Subscription info
   subscriptionTier      String  @default("free")  // "free", "pro", "team", "enterprise"
   subscriptionStatus    String  @default("active")  // "active", "cancelled", "expired"

@@ -5,18 +5,40 @@ Admin dashboard and metrics routes
 from fastapi import APIRouter, Depends, HTTPException
 from datetime import datetime, timedelta
 from prisma import Prisma
-from app.auth import get_current_user_id
+from app.auth import require_system_admin, require_auth
 
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
 
 
-@router.get("/metrics")
-async def get_admin_metrics(
-    user_id: str = Depends(get_current_user_id)
+@router.get("/verify")
+async def verify_admin_access(
+    user_id: str = Depends(require_auth)
 ):
     """
-    Get comprehensive admin metrics
-    TODO: Add proper admin authentication
+    Verify if the current user has admin access.
+    Returns 200 with isAdmin status. Used by frontend to check access.
+    """
+    db = Prisma()
+    await db.connect()
+
+    try:
+        user = await db.user.find_unique(where={"clerkId": user_id})
+
+        if not user:
+            return {"isAdmin": False, "reason": "user_not_found"}
+
+        return {"isAdmin": user.isAdmin}
+    finally:
+        await db.disconnect()
+
+
+@router.get("/metrics")
+async def get_admin_metrics(
+    user_id: str = Depends(require_system_admin)
+):
+    """
+    Get comprehensive admin metrics.
+    Requires system admin access.
     """
 
     prisma = Prisma()
@@ -122,8 +144,10 @@ async def get_admin_metrics(
 
 
 @router.get("/health-check")
-async def admin_health_check():
-    """Quick health check for admin dashboard"""
+async def admin_health_check(
+    user_id: str = Depends(require_system_admin)
+):
+    """Quick health check for admin dashboard. Requires admin access."""
 
     prisma = Prisma()
     await prisma.connect()

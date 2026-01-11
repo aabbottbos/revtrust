@@ -3,7 +3,7 @@ Authentication utilities for verifying Clerk tokens.
 Production-ready implementation with proper JWT verification.
 """
 
-from fastapi import Header, HTTPException
+from fastapi import Header, HTTPException, Depends
 from typing import Optional
 import os
 import jwt
@@ -11,6 +11,7 @@ from jwt import PyJWKClient
 from jwt.exceptions import InvalidTokenError, ExpiredSignatureError
 import requests
 from functools import lru_cache
+from prisma import Prisma
 
 
 # Get Clerk configuration from environment
@@ -128,3 +129,36 @@ async def require_auth(authorization: Optional[str] = Header(None)) -> str:
         )
 
     return user_id
+
+
+async def require_system_admin(user_id: str = Depends(require_auth)) -> str:
+    """
+    Require system admin access - raises 403 if user is not an admin.
+    Use this for admin-only endpoints.
+
+    This dependency:
+    1. First validates authentication via require_auth (returns 401 if not authenticated)
+    2. Then checks the database for isAdmin flag (returns 403 if not admin)
+    """
+    db = Prisma()
+    await db.connect()
+
+    try:
+        # Look up user by clerkId (user_id from JWT is the Clerk user ID)
+        user = await db.user.find_unique(where={"clerkId": user_id})
+
+        if not user:
+            raise HTTPException(
+                status_code=403,
+                detail="User not found in database",
+            )
+
+        if not user.isAdmin:
+            raise HTTPException(
+                status_code=403,
+                detail="Admin access required",
+            )
+
+        return user_id
+    finally:
+        await db.disconnect()

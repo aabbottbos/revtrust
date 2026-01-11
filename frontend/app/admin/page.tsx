@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useAuth } from "@clerk/nextjs"
 import { NavBar } from "@/components/layout/NavBar"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -62,6 +63,7 @@ interface AdminMetrics {
 }
 
 export default function AdminDashboard() {
+  const { getToken } = useAuth()
   const [health, setHealth] = useState<HealthStatus | null>(null)
   const [metrics, setMetrics] = useState<AdminMetrics | null>(null)
   const [loading, setLoading] = useState(true)
@@ -71,13 +73,11 @@ export default function AdminDashboard() {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
   const environment = apiUrl.includes("localhost") ? "development" : "production"
 
-  useEffect(() => {
-    fetchAll()
-  }, [])
-
-  const fetchHealth = async () => {
+  const fetchHealth = async (token: string | null) => {
     try {
-      const res = await fetch(`${apiUrl}/api/admin/health-check`)
+      const res = await fetch(`${apiUrl}/api/admin/health-check`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      })
       if (res.ok) {
         return await res.json()
       }
@@ -87,9 +87,9 @@ export default function AdminDashboard() {
     }
   }
 
-  const fetchMetrics = async () => {
+  const fetchMetrics = async (token: string | null) => {
     const res = await fetch(`${apiUrl}/api/admin/metrics`, {
-      credentials: "include"
+      headers: token ? { Authorization: `Bearer ${token}` } : {}
     })
     if (!res.ok) {
       throw new Error("Failed to fetch metrics")
@@ -101,9 +101,10 @@ export default function AdminDashboard() {
     try {
       setLoading(true)
       setError(null)
+      const token = await getToken()
       const [healthData, metricsData] = await Promise.all([
-        fetchHealth(),
-        fetchMetrics()
+        fetchHealth(token),
+        fetchMetrics(token)
       ])
       setHealth(healthData)
       setMetrics(metricsData)
@@ -113,6 +114,10 @@ export default function AdminDashboard() {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    fetchAll()
+  }, [])
 
   const handleRefresh = async () => {
     setRefreshing(true)
