@@ -51,7 +51,7 @@ export default function LandingPage() {
                 </SignUpButton>
               </SignedOut>
               <SignedIn>
-                <Link href="/upload">
+                <Link href="/dashboard">
                   <Button style={{ backgroundColor: '#2563EB' }} className="hover:bg-blue-700">
                     Go to Dashboard
                   </Button>
@@ -89,9 +89,9 @@ export default function LandingPage() {
                   </SignUpButton>
                 </SignedOut>
                 <SignedIn>
-                  <Link href="/upload">
+                  <Link href="/dashboard">
                     <Button size="lg" style={{ backgroundColor: '#2563EB' }} className="w-full sm:w-auto hover:bg-blue-700 text-lg px-8">
-                      Upload Pipeline Data
+                      Go to Dashboard
                     </Button>
                   </Link>
                 </SignedIn>
@@ -443,7 +443,7 @@ export default function LandingPage() {
                 </SignUpButton>
               </SignedOut>
               <SignedIn>
-                <Link href="/upload">
+                <Link href="/dashboard">
                   <Button className="w-full" variant="outline">
                     Go to Dashboard
                   </Button>
@@ -499,7 +499,7 @@ export default function LandingPage() {
                 </SignUpButton>
               </SignedOut>
               <SignedIn>
-                <Link href="/upload">
+                <Link href="/dashboard">
                   <Button className="w-full hover:bg-blue-700" style={{ backgroundColor: '#2563EB' }}>
                     Go to Dashboard
                   </Button>
@@ -567,7 +567,7 @@ export default function LandingPage() {
             </SignUpButton>
           </SignedOut>
           <SignedIn>
-            <Link href="/upload">
+            <Link href="/dashboard">
               <Button size="lg" className="bg-white hover:bg-slate-100 text-lg px-8" style={{ color: '#2563EB' }}>
                 Upload Pipeline Data
               </Button>

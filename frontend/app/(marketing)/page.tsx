@@ -24,7 +24,7 @@ export default function LandingPage() {
             </SignedOut>
 
             <SignedIn>
-              <Link href="/upload">
+              <Link href="/dashboard">
                 <Button>Analyze Pipeline</Button>
               </Link>
             </SignedIn>
@@ -52,7 +52,7 @@ export default function LandingPage() {
           </SignedOut>
 
           <SignedIn>
-            <Link href="/upload">
+            <Link href="/dashboard">
               <Button size="lg" className="text-lg px-8">
                 Analyze Your Pipeline
               </Button>

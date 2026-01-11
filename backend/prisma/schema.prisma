@@ -44,6 +44,10 @@ model User {
   customRules      CustomRule[]
   ruleOverrides    GlobalRuleOverride[]
 
+  // User settings and saved scans
+  settings         UserSettings?
+  savedScans       SavedScan[]
+
   @@map("users")
 }
 
@@ -262,6 +266,7 @@ model CRMConnection {
   updatedAt       DateTime @updatedAt
 
   scheduledReviews ScheduledReview[]
+  savedScans       SavedScan[]
 
   @@unique([userId, provider])
   @@index([userId, isActive])
@@ -372,6 +377,51 @@ model OutputTemplate {
 
   @@index([userId])
   @@map("output_templates")
+}
+
+// ===========================================
+// USER SETTINGS & SAVED SCANS
+// ===========================================
+
+model UserSettings {
+  id                      String   @id @default(uuid())
+  userId                  String   @unique
+  user                    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Delivery preferences
+  defaultEmailRecipients  String[]
+  slackWebhookUrl         String?
+  slackEnabled            Boolean  @default(false)
+  emailEnabled            Boolean  @default(true)
+
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  @@map("user_settings")
+}
+
+model SavedScan {
+  id                String         @id @default(uuid())
+  userId            String
+  user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name              String         // "Weekly AE Pipeline Review"
+  description       String?
+
+  // Source configuration
+  sourceType        String         // "crm"
+  crmConnectionId   String?
+  crmConnection     CRMConnection? @relation(fields: [crmConnectionId], references: [id], onDelete: SetNull)
+
+  // Filters (stored as JSON)
+  filters           Json?          // Stage filters, owner filters, date ranges, etc.
+
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  lastUsedAt        DateTime?
+
+  @@index([userId])
+  @@map("saved_scans")
 }
 
 // ===========================================

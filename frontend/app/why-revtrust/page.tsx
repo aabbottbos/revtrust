@@ -50,7 +50,7 @@ export default function WhyRevTrustPage() {
                 </SignUpButton>
               </SignedOut>
               <SignedIn>
-                <Link href="/upload">
+                <Link href="/dashboard">
                   <Button style={{ backgroundColor: '#2563EB' }} className="hover:bg-blue-700">
                     Go to Dashboard
                   </Button>
@@ -472,7 +472,7 @@ export default function WhyRevTrustPage() {
               </SignUpButton>
             </SignedOut>
             <SignedIn>
-              <Link href="/upload">
+              <Link href="/dashboard">
                 <Button size="lg" className="bg-white hover:bg-slate-100 text-lg px-8" style={{ color: '#2563EB' }}>
                   Upload Pipeline Data
                 </Button>

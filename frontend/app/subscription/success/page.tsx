@@ -92,9 +92,9 @@ function SubscriptionSuccessContent() {
         <div className="flex flex-col sm:flex-row gap-3 mt-6">
           <Button
             className="flex-1 bg-revtrust-blue"
-            onClick={() => router.push("/upload")}
+            onClick={() => router.push("/dashboard")}
           >
-            Upload Pipeline
+            Go to Dashboard
           </Button>
           <Button
             className="flex-1"

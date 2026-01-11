@@ -33,7 +33,7 @@ function ProcessingContent() {
 
   useEffect(() => {
     if (!analysisId) {
-      router.push("/upload")
+      router.push("/scan")
       return
     }
 

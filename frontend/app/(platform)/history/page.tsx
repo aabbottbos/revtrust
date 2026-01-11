@@ -114,8 +114,8 @@ export default function HistoryPage() {
           <p className="text-slate-500 mb-6">
             Upload your first CSV to get started
           </p>
-          <Button onClick={() => router.push("/upload")}>
-            Upload Pipeline
+          <Button onClick={() => router.push("/scan")}>
+            Start a Scan
           </Button>
         </Card>
       ) : (
