@@ -241,6 +241,8 @@ async def analyze_pipeline(
             "current_step": "Starting analysis...",
             "user_id": user_id,
             "filename": file.filename,
+            "source_type": "upload",  # Mark as file upload
+            "crm_provider": None,  # No CRM for uploads
             "updated_at": datetime.utcnow().isoformat() + "Z"
         }
 
@@ -533,11 +535,17 @@ async def get_analysis_result(analysis_id: str) -> Dict[str, Any]:
     warning_issues = result.get("analysis", {}).get("total_warnings", 0)
     info_issues = result.get("analysis", {}).get("total_info", 0)
 
+    # Get source information from status_data
+    source_type = status_data.get("source_type", "upload")
+    crm_provider = status_data.get("crm_provider")
+
     # Return enhanced result
     return {
         "analysis_id": analysis_id,
         "file_name": result.get("file_info", {}).get("filename", "Unknown"),
         "analyzed_at": status_data.get("updated_at"),
+        "source_type": source_type,  # "upload" or "crm"
+        "crm_provider": crm_provider,  # "salesforce", "hubspot", or None
         "total_deals": total_deals,
         "deals_with_issues": deals_with_issues,
         "deals_without_issues": deals_without_issues,

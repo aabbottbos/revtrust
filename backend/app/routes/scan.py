@@ -74,7 +74,8 @@ async def scan_crm(
             "updated_at": datetime.utcnow().isoformat() + "Z",
             "user_id": user_id,
             "filename": f"{connection.provider.capitalize()} - {connection.accountName or 'CRM Scan'}",
-            "source": "crm",
+            "source_type": "crm",
+            "crm_provider": connection.provider,  # "salesforce" or "hubspot"
             "crm_connection_id": connection_id
         }
 

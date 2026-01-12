@@ -39,6 +39,8 @@ interface DealReviewWizardProps {
   onClose: () => void
   deals: FlaggedDeal[]
   initialDealId?: string | null // ID of deal to start with
+  sourceType: "upload" | "crm" // Source of the analysis
+  crmProvider?: "salesforce" | "hubspot" | null // CRM provider if source is CRM
   onDealsUpdated?: () => void // Callback to refresh parent data
 }
 
@@ -123,6 +125,8 @@ export function DealReviewWizard({
   onClose,
   deals,
   initialDealId,
+  sourceType,
+  crmProvider,
   onDealsUpdated,
 }: DealReviewWizardProps) {
   const [pendingUpdate, setPendingUpdate] = useState<{
@@ -277,9 +281,13 @@ export function DealReviewWizard({
             <div className="flex items-center gap-4">
               <AlertCircle className="h-6 w-6 text-amber-500" />
               <div>
-                <h2 className="text-lg font-semibold">Review & Fix Issues</h2>
+                <h2 className="text-lg font-semibold">
+                  {sourceType === "crm" ? "Review & Fix Issues" : "Review Issues"}
+                </h2>
                 <p className="text-sm text-slate-500">
-                  Fix issues and push updates to your CRM
+                  {sourceType === "crm"
+                    ? "Fix issues and push updates to your CRM"
+                    : "Review issues found in your pipeline data"}
                 </p>
               </div>
             </div>
@@ -372,20 +380,22 @@ export function DealReviewWizard({
                     </TabsContent>
                   </Tabs>
 
-                  {/* Edit Form */}
-                  <div className="border rounded-lg p-4 bg-white">
-                    <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
-                      <CheckCircle2 className="h-5 w-5 text-green-600" />
-                      Fix Issues
-                    </h3>
-                    <DealEditForm
-                      deal={currentDeal}
-                      issues={businessRuleIssues}
-                      onSave={handleSaveRequest}
-                      isSaving={isSaving}
-                      crmType={currentDeal.crm_type}
-                    />
-                  </div>
+                  {/* Edit Form - Only show for CRM-sourced analyses */}
+                  {sourceType === "crm" && (
+                    <div className="border rounded-lg p-4 bg-white">
+                      <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
+                        <CheckCircle2 className="h-5 w-5 text-green-600" />
+                        Fix Issues
+                      </h3>
+                      <DealEditForm
+                        deal={currentDeal}
+                        issues={businessRuleIssues}
+                        onSave={handleSaveRequest}
+                        isSaving={isSaving}
+                        crmType={currentDeal.crm_type}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

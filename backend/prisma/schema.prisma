@@ -61,6 +61,10 @@ model Analysis {
   processingStatus ProcessingStatus @default(PENDING)
   errorMessage    String?
 
+  // Source tracking
+  sourceType      String            @default("upload")  // "upload" | "crm"
+  crmProvider     String?           // "salesforce" | "hubspot" (only if sourceType = "crm")
+
   // Summary metrics
   totalDeals      Int               @default(0)
   dealsWithIssues Int               @default(0)

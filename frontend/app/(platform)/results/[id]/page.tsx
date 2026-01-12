@@ -80,6 +80,8 @@ interface AnalysisResult {
   analysis_id: string
   file_name: string
   analyzed_at: string
+  source_type: "upload" | "crm"
+  crm_provider?: "salesforce" | "hubspot" | null
   total_deals: number
   deals_with_issues: number
   health_score: number
@@ -166,12 +168,15 @@ export default function ResultsPage() {
       return []
     }
 
+    // Determine CRM type from result
+    const crmType = (result.crm_provider === "hubspot" ? "hubspot" : "salesforce") as "salesforce" | "hubspot"
+
     return Object.entries(result.violations_by_deal).map(([dealKey, violations]) => {
       const firstViolation = violations[0] || {}
       return {
         id: dealKey,
         crm_id: dealKey,
-        crm_type: "salesforce" as const,
+        crm_type: crmType,
         name: firstViolation.deal_name || dealKey,
         account_name: undefined,
         stage: undefined,
@@ -197,7 +202,7 @@ export default function ResultsPage() {
         })),
       }
     })
-  }, [flaggedDeals, result?.violations_by_deal])
+  }, [flaggedDeals, result?.violations_by_deal, result?.crm_provider])
 
   // Check for deal query param on mount to auto-open wizard
   useEffect(() => {
@@ -423,6 +428,8 @@ export default function ResultsPage() {
           onClose={handleWizardClose}
           deals={wizardDeals}
           initialDealId={initialDealId}
+          sourceType={result?.source_type || "upload"}
+          crmProvider={result?.crm_provider}
           onDealsUpdated={() => {
             fetchResults()
             refetchFlaggedDeals()
