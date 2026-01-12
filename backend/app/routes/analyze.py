@@ -319,7 +319,32 @@ async def get_analysis_result(analysis_id: str) -> Dict[str, Any]:
                 detail=f"Analysis not complete. Current status: {status_data['status']}"
             )
 
-        result = status_data.get("result", {})
+        # Check if this is a CRM scan (data stored directly) or file upload (nested under "result")
+        if "result" in status_data:
+            # File upload format - nested structure
+            result = status_data["result"]
+        else:
+            # CRM scan format - data stored directly in status_data
+            # Build the expected structure from direct fields
+            result = {
+                "file_info": {
+                    "filename": status_data.get("filename", "CRM Scan"),
+                    "total_rows": status_data.get("total_deals", 0),
+                    "total_columns": 0,
+                    "valid_rows": status_data.get("total_deals", 0),
+                },
+                "analysis": {
+                    "health_score": float(status_data.get("health_score", 0)),
+                    "total_deals": status_data.get("total_deals", 0),
+                    "deals_with_issues": status_data.get("deals_with_issues", 0),
+                    "total_critical": status_data.get("total_critical", 0),
+                    "total_warnings": status_data.get("total_warnings", 0),
+                    "total_info": 0,
+                },
+                "violations": status_data.get("violations", []),
+                "deals_summary": status_data.get("deals_summary", []),
+                "violations_by_deal": status_data.get("violations_by_deal", {}),
+            }
     else:
         # Not in memory, check database for scheduled review runs
         prisma = Prisma()
@@ -373,8 +398,6 @@ async def get_analysis_result(analysis_id: str) -> Dict[str, Any]:
             }
         finally:
             await prisma.disconnect()
-
-    result = status_data.get("result", {}) if "result" in status_data else result
 
     # Calculate enhanced health metrics
     total_deals = result.get("analysis", {}).get("total_deals", 0)

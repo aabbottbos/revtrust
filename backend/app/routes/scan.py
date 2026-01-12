@@ -11,7 +11,6 @@ import logging
 from app.auth import get_current_user_id, get_current_user_email
 from app.services.salesforce_service import get_salesforce_service
 from app.services.hubspot_service import get_hubspot_service
-from app.services.encryption_service import get_encryption_service
 from app.utils.business_rules_engine import ContextualBusinessRulesEngine
 from app.routes.analyze import analysis_status_store
 
@@ -265,26 +264,13 @@ async def process_crm_scan_background(
 async def fetch_deals_from_crm(connection) -> list:
     """Fetch deals from a CRM connection"""
 
-    encryption_service = get_encryption_service()
-
     if connection.provider == "salesforce":
-        # Decrypt tokens
-        access_token = encryption_service.decrypt(connection.accessToken)
-        refresh_token = encryption_service.decrypt(connection.refreshToken) if connection.refreshToken else None
-
         sf_service = get_salesforce_service()
-        deals = await sf_service.fetch_opportunities(
-            access_token=access_token,
-            refresh_token=refresh_token,
-            instance_url=connection.instanceUrl
-        )
+        deals = await sf_service.fetch_opportunities(connection_id=connection.id)
 
     elif connection.provider == "hubspot":
-        # Decrypt API key
-        api_key = encryption_service.decrypt(connection.accessToken)
-
         hs_service = get_hubspot_service()
-        deals = await hs_service.fetch_deals(api_key=api_key)
+        deals = await hs_service.fetch_deals(connection_id=connection.id)
 
     else:
         raise Exception(f"Unsupported CRM provider: {connection.provider}")

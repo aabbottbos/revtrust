@@ -10,10 +10,13 @@ import requests
 import hashlib
 import base64
 import secrets
+import logging
 from urllib.parse import urlencode
 from datetime import datetime, timedelta, timezone
 from app.services.encryption_service import get_encryption_service
 from prisma import Prisma
+
+logger = logging.getLogger(__name__)
 
 
 class HubSpotService:
@@ -251,7 +254,10 @@ class HubSpotService:
     ) -> List[Dict]:
         """Fetch deals from HubSpot with pagination"""
 
+        logger.info(f"🔄 HubSpot fetch_deals called for connection: {connection_id}")
+
         access_token = await self.get_valid_token(connection_id)
+        logger.info(f"✓ Got access token (length: {len(access_token) if access_token else 0})")
 
         # Initialize HubSpot client
         client = HubSpot(access_token=access_token)
@@ -280,6 +286,8 @@ class HubSpotService:
                 # Calculate how many to fetch in this request
                 current_limit = min(page_size, limit - total_fetched)
 
+                logger.info(f"📡 Calling HubSpot API: get_page(limit={current_limit}, after={after})")
+
                 # Fetch deals with properties
                 deals_response = client.crm.deals.basic_api.get_page(
                     limit=current_limit,
@@ -288,9 +296,12 @@ class HubSpotService:
                     after=after
                 )
 
+                logger.info(f"✓ API response: {len(deals_response.results)} deals returned")
+
                 # Normalize to RevTrust format
                 for deal in deals_response.results:
                     props = deal.properties
+                    logger.debug(f"   Deal: {props.get('dealname')} (stage: {props.get('dealstage')})")
 
                     deals.append({
                         "id": deal.id,
@@ -314,10 +325,11 @@ class HubSpotService:
                     # No more pages
                     break
 
+            logger.info(f"✅ HubSpot fetch_deals complete: {len(deals)} total deals")
             return deals
 
         except ApiException as e:
-            print(f"HubSpot API error: {e}")
+            logger.error(f"❌ HubSpot API error: {e}")
             raise
 
     async def test_connection(self, connection_id: str) -> bool:
