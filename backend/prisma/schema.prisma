@@ -743,3 +743,54 @@ model PromptUsageLog {
   @@index([experimentId])
   @@map("prompt_usage_logs")
 }
+
+// ===========================================
+// ADMIN AUDIT LOGGING
+// ===========================================
+
+model AdminAuditLog {
+  id              String   @id @default(uuid())
+
+  // Who performed the action
+  performedBy     String   // Clerk user ID of admin who performed action
+  performedByEmail String? // Email for easier searching
+
+  // What action was performed
+  action          String   // "grant_admin", "revoke_admin", "update_user", "delete_rule", etc.
+  actionCategory  AdminActionCategory @default(USER_MANAGEMENT)
+
+  // What resource was affected
+  resourceType    String   // "User", "Rule", "Prompt", "Provider", etc.
+  resourceId      String?  // ID of affected resource
+  resourceName    String?  // Name/email for display
+
+  // Details about the change
+  changeDetails   Json?    // Stores before/after values, additional context
+
+  // Request metadata
+  ipAddress       String?  // IP address of request
+  userAgent       String?  // Browser/client info
+
+  // Result
+  success         Boolean  @default(true)
+  errorMessage    String?  @db.Text
+
+  createdAt       DateTime @default(now())
+
+  @@index([performedBy])
+  @@index([action])
+  @@index([actionCategory])
+  @@index([resourceType, resourceId])
+  @@index([createdAt])
+  @@map("admin_audit_logs")
+}
+
+enum AdminActionCategory {
+  USER_MANAGEMENT
+  RULE_MANAGEMENT
+  PROMPT_MANAGEMENT
+  PROVIDER_MANAGEMENT
+  SYSTEM_CONFIG
+  DATA_EXPORT
+  OTHER
+}

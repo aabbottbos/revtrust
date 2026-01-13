@@ -218,7 +218,24 @@ export default function AdminDashboard() {
 
         {/* Admin Tools - Primary Navigation */}
         <h2 className="text-lg font-semibold text-slate-700 mb-3">Admin Tools</h2>
-        <div className="grid md:grid-cols-3 gap-4 mb-8">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <Link href="/admin/users">
+            <Card className="p-5 hover:border-green-300 hover:shadow-md transition-all cursor-pointer group h-full">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <Users className="w-5 h-5 text-green-600" />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-slate-900">User Management</div>
+                    <div className="text-sm text-slate-500">Manage users & admin access</div>
+                  </div>
+                </div>
+                <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-green-500 transition-colors" />
+              </div>
+            </Card>
+          </Link>
+
           <Link href="/admin/prompts">
             <Card className="p-5 hover:border-purple-300 hover:shadow-md transition-all cursor-pointer group h-full">
               <div className="flex items-center justify-between">

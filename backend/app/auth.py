@@ -18,6 +18,10 @@ from prisma import Prisma
 CLERK_SECRET_KEY = os.getenv("CLERK_SECRET_KEY")
 CLERK_JWKS_URL = "https://enough-adder-37.clerk.accounts.dev/.well-known/jwks.json"  # Derived from publishable key
 
+# Environment detection for security controls
+ENV = os.getenv("ENV", "production")
+IS_DEVELOPMENT = ENV.lower() in ["development", "dev", "local"]
+
 
 @lru_cache(maxsize=1)
 def get_jwks_client():
@@ -30,19 +34,35 @@ async def get_current_user_id(authorization: Optional[str] = Header(None)) -> st
     Get current user ID from Clerk JWT token with proper verification.
 
     For development: Falls back to anonymous_user if no token provided.
-    For production: Should reject requests without valid tokens.
+    For production: Strictly requires valid authentication.
     """
-    # Development mode: Allow anonymous access for testing
+    # Check if authorization header is present
     if not authorization:
-        print("⚠️  No authorization header - using anonymous_user")
-        return "anonymous_user"
+        if IS_DEVELOPMENT:
+            print("⚠️  [DEV] No authorization header - using anonymous_user")
+            return "anonymous_user"
+        else:
+            print("❌ [PROD] No authorization header - rejecting request")
+            raise HTTPException(
+                status_code=401,
+                detail="Authentication required",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
 
     # Remove "Bearer " prefix if present
     token = authorization.replace("Bearer ", "").strip()
 
     if not token:
-        print("⚠️  Empty token - using anonymous_user")
-        return "anonymous_user"
+        if IS_DEVELOPMENT:
+            print("⚠️  [DEV] Empty token - using anonymous_user")
+            return "anonymous_user"
+        else:
+            print("❌ [PROD] Empty token - rejecting request")
+            raise HTTPException(
+                status_code=401,
+                detail="Authentication required",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
 
     try:
         # Verify and decode the JWT token
@@ -61,26 +81,49 @@ async def get_current_user_id(authorization: Optional[str] = Header(None)) -> st
         user_id = payload.get("sub")
 
         if not user_id:
-            print("⚠️  No 'sub' claim in token - using anonymous_user")
-            return "anonymous_user"
+            if IS_DEVELOPMENT:
+                print("⚠️  [DEV] No 'sub' claim in token - using anonymous_user")
+                return "anonymous_user"
+            else:
+                print("❌ [PROD] No 'sub' claim in token - rejecting request")
+                raise HTTPException(
+                    status_code=401,
+                    detail="Invalid token: missing user ID",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
 
         print(f"✅ Authenticated user: {user_id}")
         return user_id
 
     except ExpiredSignatureError:
-        print("⚠️  Token expired - using anonymous_user")
-        # In production, you might want to raise HTTPException(401, "Token expired")
-        return "anonymous_user"
+        print(f"❌ Token expired - {'allowing in dev' if IS_DEVELOPMENT else 'rejecting'}")
+        if IS_DEVELOPMENT:
+            return "anonymous_user"
+        raise HTTPException(
+            status_code=401,
+            detail="Token expired",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     except InvalidTokenError as e:
-        print(f"⚠️  Invalid token ({str(e)}) - using anonymous_user")
-        # In production, you might want to raise HTTPException(401, "Invalid token")
-        return "anonymous_user"
+        print(f"❌ Invalid token ({str(e)}) - {'allowing in dev' if IS_DEVELOPMENT else 'rejecting'}")
+        if IS_DEVELOPMENT:
+            return "anonymous_user"
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     except Exception as e:
-        print(f"⚠️  Token verification failed ({str(e)}) - using anonymous_user")
-        # In production, you might want to raise HTTPException(401, "Authentication failed")
-        return "anonymous_user"
+        print(f"❌ Token verification failed ({str(e)}) - {'allowing in dev' if IS_DEVELOPMENT else 'rejecting'}")
+        if IS_DEVELOPMENT:
+            return "anonymous_user"
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication failed",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
 
 async def get_current_user_email(authorization: Optional[str] = Header(None)) -> Optional[str]:
