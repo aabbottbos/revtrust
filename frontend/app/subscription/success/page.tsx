@@ -1,25 +1,74 @@
 "use client"
 
-import { Suspense, useState } from "react"
+import { Suspense, useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@clerk/nextjs"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { CheckCircle, Sparkles, Gift, Copy, Check } from "lucide-react"
+import { CheckCircle, Sparkles, Gift, Copy, Check, Loader2 } from "lucide-react"
+import { useAuthenticatedFetch } from "@/hooks/useAuthenticatedFetch"
 
 function SubscriptionSuccessContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { userId } = useAuth()
+  const authenticatedFetch = useAuthenticatedFetch()
   const sessionId = searchParams.get("session_id")
   const [copied, setCopied] = useState(false)
+  const [verifying, setVerifying] = useState(true)
+  const [subscriptionActive, setSubscriptionActive] = useState(false)
 
   const referralLink = `${window.location.origin}?ref=${userId}`
+
+  useEffect(() => {
+    // Poll for subscription status (webhook may take a few seconds)
+    const checkSubscription = async () => {
+      try {
+        // Wait a moment for webhook to process
+        await new Promise(resolve => setTimeout(resolve, 2000))
+
+        const response = await authenticatedFetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/stripe/subscription-status`
+        )
+
+        if (response.ok) {
+          const data = await response.json()
+          setSubscriptionActive(data.tier === "pro" && data.status === "active")
+        }
+      } catch (err) {
+        console.error("Error checking subscription:", err)
+      } finally {
+        setVerifying(false)
+      }
+    }
+
+    if (sessionId) {
+      checkSubscription()
+    } else {
+      setVerifying(false)
+    }
+  }, [sessionId, authenticatedFetch])
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(referralLink)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  if (verifying) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <Card className="max-w-lg p-8 text-center">
+          <Loader2 className="w-16 h-16 mx-auto mb-4 animate-spin text-revtrust-blue" />
+          <h2 className="text-2xl font-bold mb-2 text-slate-900">
+            Activating your Pro subscription...
+          </h2>
+          <p className="text-slate-600">
+            Please wait a moment while we set up your account.
+          </p>
+        </Card>
+      </div>
+    )
   }
 
   return (
@@ -30,12 +79,15 @@ function SubscriptionSuccessContent() {
         </div>
 
         <h1 className="text-3xl font-bold mb-4 text-slate-900">
-          Welcome to RevTrust Pro!
+          {subscriptionActive
+            ? "Welcome to RevTrust Pro!"
+            : "Payment Received!"}
         </h1>
 
         <p className="text-lg text-slate-600 mb-6">
-          Your subscription is now active. You have full access to AI-powered
-          pipeline insights.
+          {subscriptionActive
+            ? "Your subscription is now active. You have full access to AI-powered pipeline insights."
+            : "Your payment was successful. Your Pro features will be activated within a few moments."}
         </p>
 
         <div className="bg-blue-50 rounded-lg p-4 mb-6 border border-blue-200">

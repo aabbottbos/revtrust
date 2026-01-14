@@ -5,16 +5,27 @@ Stripe service for handling subscriptions
 import stripe
 import os
 from typing import Dict, Optional
+import logging
 
-stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+logger = logging.getLogger(__name__)
 
 class StripeService:
     """Handle all Stripe operations"""
 
     def __init__(self):
+        # Initialize Stripe API key on instantiation (after env is loaded)
+        self.api_key = os.getenv("STRIPE_SECRET_KEY")
+        if not self.api_key:
+            logger.error("STRIPE_SECRET_KEY not set in environment")
+            raise ValueError("STRIPE_SECRET_KEY not configured")
+
+        stripe.api_key = self.api_key
+        logger.info(f"Stripe API key configured: {self.api_key[:15]}...")
+
         self.pro_price_id = os.getenv("STRIPE_PRO_PRICE_ID")
         if not self.pro_price_id:
-            print("WARNING: STRIPE_PRO_PRICE_ID not set")
+            logger.error("STRIPE_PRO_PRICE_ID not set in environment")
+            raise ValueError("STRIPE_PRO_PRICE_ID not configured")
 
     def create_checkout_session(
         self,

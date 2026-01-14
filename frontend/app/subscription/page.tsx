@@ -6,9 +6,11 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Loader2, CreditCard, Calendar } from "lucide-react"
+import { useAuthenticatedFetch } from "@/hooks/useAuthenticatedFetch"
 
 export default function SubscriptionPage() {
   const { userId } = useAuth()
+  const authenticatedFetch = useAuthenticatedFetch()
   const [loading, setLoading] = useState(true)
   const [subscription, setSubscription] = useState<any>(null)
   const [portalLoading, setPortalLoading] = useState(false)
@@ -21,7 +23,7 @@ export default function SubscriptionPage() {
 
   const fetchSubscription = async () => {
     try {
-      const response = await fetch(
+      const response = await authenticatedFetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/stripe/subscription-status`
       )
 
@@ -40,7 +42,7 @@ export default function SubscriptionPage() {
     try {
       setPortalLoading(true)
 
-      const response = await fetch(
+      const response = await authenticatedFetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/stripe/create-portal-session`,
         {
           method: "POST"

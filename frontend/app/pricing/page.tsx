@@ -9,10 +9,12 @@ import { Badge } from "@/components/ui/badge"
 import { Check, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { analytics } from "@/lib/analytics"
+import { useAuthenticatedFetch } from "@/hooks/useAuthenticatedFetch"
 
 export default function PricingPage() {
   const router = useRouter()
   const { userId } = useAuth()
+  const authenticatedFetch = useAuthenticatedFetch()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -29,13 +31,10 @@ export default function PricingPage() {
       // Track upgrade click
       analytics.upgradeClicked("pricing_page", "pro")
 
-      const response = await fetch(
+      const response = await authenticatedFetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/stripe/create-checkout-session`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
         }
       )
 
