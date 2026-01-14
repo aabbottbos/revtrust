@@ -5,6 +5,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { Toaster } from "@/components/ui/sonner";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { OfflineDetector } from "@/components/offline-detector";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 
 // Inter for headings (page titles, section headers, navigation)
@@ -63,6 +64,7 @@ export default function RootLayout({
             {children}
           </ErrorBoundary>
           <Toaster />
+          <SpeedInsights />
         </body>
       </html>
     </ClerkProvider>
