@@ -184,10 +184,10 @@ export default function DashboardPage() {
                 )}
               </div>
               <div className={`p-3 rounded-full ${getHealthBgColor(stats?.lastScanScore ?? null)}`}>
-                {stats?.lastScanScore !== null ? (
-                  stats.lastScanScore >= 75 ? (
+                {stats?.lastScanScore !== null && stats?.lastScanScore !== undefined ? (
+                  stats?.lastScanScore >= 75 ? (
                     <CheckCircle2 className={`h-6 w-6 ${getHealthColor(stats.lastScanScore)}`} />
-                  ) : stats.lastScanScore >= 50 ? (
+                  ) : stats?.lastScanScore >= 50 ? (
                     <TrendingDown className={`h-6 w-6 ${getHealthColor(stats.lastScanScore)}`} />
                   ) : (
                     <AlertTriangle className={`h-6 w-6 ${getHealthColor(stats.lastScanScore)}`} />
