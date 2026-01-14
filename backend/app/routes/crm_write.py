@@ -168,13 +168,23 @@ async def get_flagged_deals(
     deals = result.get("deals", [])
     violations = result.get("violations", [])
 
-    # Group violations by deal name
-    violations_by_deal = {}
+    # Group violations by deal ID AND deal name (for flexibility in matching)
+    violations_by_deal_id = {}
+    violations_by_deal_name = {}
     for v in violations:
-        deal_name = v.get("deal_name", "Unknown")
-        if deal_name not in violations_by_deal:
-            violations_by_deal[deal_name] = []
-        violations_by_deal[deal_name].append(v)
+        # Group by deal_id
+        deal_id = v.get("deal_id")
+        if deal_id:
+            if deal_id not in violations_by_deal_id:
+                violations_by_deal_id[deal_id] = []
+            violations_by_deal_id[deal_id].append(v)
+
+        # Also group by deal_name (for backwards compatibility)
+        deal_name = v.get("deal_name")
+        if deal_name:
+            if deal_name not in violations_by_deal_name:
+                violations_by_deal_name[deal_name] = []
+            violations_by_deal_name[deal_name].append(v)
 
     # Get user's CRM connection to determine CRM type
     db = Prisma()
@@ -193,9 +203,22 @@ async def get_flagged_deals(
 
     # Build flagged deals list
     flagged_deals = []
+    logger.info(f"[get_flagged_deals] Processing {len(deals)} deals")
     for deal in deals:
+        # Get deal identifiers
+        deal_id = deal.get("id") or deal.get("deal_id") or deal.get("opportunity_id")
         deal_name = deal.get("deal_name") or deal.get("opportunity_name") or deal.get("name", "Unknown")
-        deal_violations = violations_by_deal.get(deal_name, [])
+
+        logger.info(f"[get_flagged_deals] Deal: id={deal_id}, name={deal_name}")
+
+        # Try to find violations by ID first, then by name
+        deal_violations = violations_by_deal_id.get(deal_id, [])
+        if not deal_violations:
+            deal_violations = violations_by_deal_name.get(deal_name, [])
+            if deal_violations:
+                logger.info(f"[get_flagged_deals] Matched {len(deal_violations)} violations by name")
+        else:
+            logger.info(f"[get_flagged_deals] Matched {len(deal_violations)} violations by ID")
 
         # Skip deals with no violations
         if not deal_violations:
@@ -218,13 +241,10 @@ async def get_flagged_deals(
                 "remediation_owner": v.get("remediation_owner"),
             })
 
-        # Get deal ID (try multiple fields)
-        deal_id = (
-            deal.get("opportunity_id") or
-            deal.get("deal_id") or
-            deal.get("id") or
-            str(uuid.uuid4())
-        )
+        # Use the deal_id we already extracted (line 208)
+        # Fallback to UUID if somehow it's still None
+        if not deal_id:
+            deal_id = str(uuid.uuid4())
 
         flagged_deals.append(DealWithIssues(
             id=deal_id,

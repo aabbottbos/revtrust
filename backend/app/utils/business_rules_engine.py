@@ -81,7 +81,7 @@ class BusinessRulesEngine:
             all_violations.extend([
                 {
                     'deal_id': deal.get('deal_id') or deal.get('id') or deal.get('external_id'),
-                    'deal_name': deal.get('deal_name'),
+                    'deal_name': deal.get('deal_name') or deal.get('name') or deal.get('dealname'),
                     **asdict(v)
                 }
                 for v in violations
@@ -295,7 +295,7 @@ class ContextualBusinessRulesEngine:
             all_violations.extend([
                 {
                     'deal_id': deal.get('deal_id') or deal.get('id') or deal.get('external_id'),
-                    'deal_name': deal.get('deal_name'),
+                    'deal_name': deal.get('deal_name') or deal.get('name') or deal.get('dealname'),
                     **asdict(v)
                 }
                 for v in violations

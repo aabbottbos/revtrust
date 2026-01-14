@@ -751,14 +751,46 @@ async def get_deal_details(analysis_id: str, deal_id: str):
 
     result = status.get("result", {})
 
-    # Find violations for this deal
+    # Find violations for this deal - match against deal_name, deal_id, or crm_id
     violations = [
         v for v in result.get("violations", [])
-        if (v.get("deal_name") == deal_id or v.get("deal_id") == deal_id)
+        if (v.get("deal_name") == deal_id or
+            v.get("deal_id") == deal_id or
+            v.get("crm_id") == deal_id)
     ]
 
     if not violations:
         raise HTTPException(404, "Deal not found")
+
+    # Get the actual deal name from deals_summary (for CRM scans) or from violations (for uploads)
+    deal_name = deal_id  # fallback
+    deals_summary = result.get("deals_summary", [])
+
+    # Debug logging
+    logger.info(f"[get_deal_details] Looking up deal_id: {deal_id}")
+    logger.info(f"[get_deal_details] deals_summary count: {len(deals_summary)}")
+    if deals_summary:
+        logger.info(f"[get_deal_details] Sample deal: {deals_summary[0]}")
+
+    # Try to find deal in deals_summary first (has proper name for CRM deals)
+    if deals_summary:
+        matching_deal = next(
+            (d for d in deals_summary if
+             d.get("deal_id") == deal_id or
+             d.get("deal_name") == deal_id or
+             d.get("crm_id") == deal_id),
+            None
+        )
+        if matching_deal:
+            deal_name = matching_deal.get("deal_name", deal_id)
+            logger.info(f"[get_deal_details] Found matching deal: {deal_name}")
+        else:
+            logger.warning(f"[get_deal_details] No matching deal found in deals_summary for {deal_id}")
+
+    # Fallback: get deal_name from first violation
+    if deal_name == deal_id and violations:
+        deal_name = violations[0].get("deal_name", deal_id)
+        logger.info(f"[get_deal_details] Using fallback from violation: {deal_name}")
 
     # Count by severity
     critical_count = sum(1 for v in violations if v.get("severity", "").lower() == "critical")
@@ -775,7 +807,7 @@ async def get_deal_details(analysis_id: str, deal_id: str):
 
     return {
         "deal_id": deal_id,
-        "deal_name": deal_id,
+        "deal_name": deal_name,
         "violations": violations,
         "violations_by_category": violations_by_category,
         "critical_count": critical_count,
