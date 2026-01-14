@@ -16,6 +16,7 @@ import {
   Building2,
   DollarSign,
   Calendar,
+  RefreshCw,
 } from "lucide-react"
 
 interface DealSummary {
@@ -41,6 +42,9 @@ interface DealsViewProps {
   dealsWithIssues: number
   onDealClick?: (dealId: string) => void
   onReviewClick?: () => void
+  onScanAgain?: () => void
+  isScanning?: boolean
+  sourceType?: "upload" | "crm"
   filter?: DealsFilter
   onFilterChange?: (filter: DealsFilter) => void
 }
@@ -81,6 +85,9 @@ export function DealsView({
   dealsWithIssues,
   onDealClick,
   onReviewClick,
+  onScanAgain,
+  isScanning = false,
+  sourceType = "upload",
   filter = "all",
   onFilterChange,
 }: DealsViewProps) {
@@ -161,9 +168,26 @@ export function DealsView({
               )}
             </h3>
             {dealsWithIssues > 0 && onReviewClick && filter !== "healthy" && (
-              <Button size="sm" onClick={onReviewClick}>
-                Review All
-              </Button>
+              <div className="flex items-center gap-2">
+                {sourceType === "crm" && onScanAgain && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={onScanAgain}
+                    disabled={isScanning}
+                  >
+                    <RefreshCw className={`w-4 h-4 mr-2 ${isScanning ? 'animate-spin' : ''}`} />
+                    Scan Again
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  onClick={onReviewClick}
+                  className="bg-revtrust-blue hover:bg-blue-700 text-white"
+                >
+                  {sourceType === "crm" ? "Review & Fix" : "Review"}
+                </Button>
+              </div>
             )}
           </div>
         </div>
@@ -200,7 +224,9 @@ export function DealsView({
         ) : (
           <div className="divide-y divide-slate-100">
             {filteredDeals.map((deal) => {
-              const config = severityConfig[deal.severity]
+              // Ensure severity is normalized to lowercase and valid
+              const normalizedSeverity = (deal.severity?.toLowerCase() || "info") as "critical" | "warning" | "info"
+              const config = severityConfig[normalizedSeverity] || severityConfig.info
               const Icon = config.icon
 
               return (

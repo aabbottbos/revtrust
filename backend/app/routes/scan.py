@@ -127,10 +127,26 @@ async def process_crm_scan_background(
             raise Exception("CRM connection not found")
 
         # Fetch deals from CRM
+        logger.info(f"📡 Fetching deals from {connection.provider}...")
         deals = await fetch_deals_from_crm(connection)
+
+        logger.info(f"✓ Fetched {len(deals) if deals else 0} deals from CRM")
+
+        # Log first 3 deals for debugging
+        if deals and len(deals) > 0:
+            logger.info(f"📊 Sample deals from CRM:")
+            for i, deal in enumerate(deals[:3], 1):
+                logger.info(f"   Deal {i}:")
+                logger.info(f"     - ID: {deal.get('id')}")
+                logger.info(f"     - Name: {deal.get('name')}")
+                logger.info(f"     - Amount: ${deal.get('amount', 0)}")
+                logger.info(f"     - Stage: {deal.get('stage')}")
+                logger.info(f"     - Close Date: {deal.get('close_date')}")
+                logger.info(f"     - Keys: {list(deal.keys())}")
 
         if not deals or len(deals) == 0:
             # No deals found
+            logger.warning(f"⚠️ No deals found in CRM for connection {connection_id}")
             analysis_status_store[analysis_id].update({
                 "status": "completed",
                 "progress": 100,
@@ -146,8 +162,6 @@ async def process_crm_scan_background(
                 "error": "No deals found in CRM"
             })
             return
-
-        logger.info(f"✓ Fetched {len(deals)} deals from CRM")
 
         # Update status
         analysis_status_store[analysis_id]["progress"] = 40
@@ -200,24 +214,35 @@ async def process_crm_scan_background(
             violations_by_deal[deal_id].append(violation)
 
         # Build deals summary
+        logger.info(f"📝 Building deals summary for {len(deals)} deals...")
         deals_summary = []
         for deal in deals:
             deal_id = deal.get("id", "")
             deal_violations = violations_by_deal.get(deal_id, [])
-            deals_summary.append({
-                "deal_id": deal_id,
-                "deal_name": deal.get("name", "Unknown"),
-                "amount": deal.get("amount"),
-                "stage": deal.get("stage"),
-                "close_date": deal.get("close_date"),
-                "severity": "CRITICAL" if any(v.get("severity") == "CRITICAL" for v in deal_violations) else
-                           "WARNING" if any(v.get("severity") == "WARNING" for v in deal_violations) else
-                           "INFO" if deal_violations else "NONE",
-                "total_issues": len(deal_violations),
-                "critical_count": len([v for v in deal_violations if v.get("severity") == "CRITICAL"]),
-                "warning_count": len([v for v in deal_violations if v.get("severity") == "WARNING"]),
-                "info_count": len([v for v in deal_violations if v.get("severity") == "INFO"])
-            })
+
+            # Only include deals with violations (frontend expects only deals with issues)
+            if deal_violations:
+                # Determine severity (use lowercase to match frontend expectations)
+                # Check violations using uppercase since business rules return uppercase
+                has_critical = any(v.get("severity") == "CRITICAL" for v in deal_violations)
+                has_warning = any(v.get("severity") == "WARNING" for v in deal_violations)
+
+                severity = "critical" if has_critical else "warning" if has_warning else "info"
+
+                deals_summary.append({
+                    "deal_id": deal_id,
+                    "deal_name": deal.get("name", "Unknown"),
+                    "amount": deal.get("amount"),
+                    "stage": deal.get("stage"),
+                    "close_date": deal.get("close_date"),
+                    "severity": severity,
+                    "total_issues": len(deal_violations),
+                    "critical_count": len([v for v in deal_violations if v.get("severity") == "CRITICAL"]),
+                    "warning_count": len([v for v in deal_violations if v.get("severity") == "WARNING"]),
+                    "info_count": len([v for v in deal_violations if v.get("severity") == "INFO"])
+                })
+
+        logger.info(f"✓ Built deals summary: {len(deals_summary)} deals")
 
         # Update connection last sync
         await prisma.crmconnection.update(

@@ -255,12 +255,14 @@ class HubSpotService:
         """Fetch deals from HubSpot with pagination"""
 
         logger.info(f"🔄 HubSpot fetch_deals called for connection: {connection_id}")
+        logger.info(f"   Requested limit: {limit}")
 
         access_token = await self.get_valid_token(connection_id)
         logger.info(f"✓ Got access token (length: {len(access_token) if access_token else 0})")
 
         # Initialize HubSpot client
         client = HubSpot(access_token=access_token)
+        logger.info(f"✓ HubSpot client initialized")
 
         try:
             # HubSpot API has a max limit of 100 per request, so we need to paginate
@@ -268,6 +270,7 @@ class HubSpotService:
             deals = []
             after = None
             total_fetched = 0
+            page_num = 0
 
             properties = [
                 "dealname",
@@ -282,11 +285,14 @@ class HubSpotService:
                 "hubspot_owner_id"
             ]
 
+            logger.info(f"📋 Properties to fetch: {properties}")
+
             while total_fetched < limit:
+                page_num += 1
                 # Calculate how many to fetch in this request
                 current_limit = min(page_size, limit - total_fetched)
 
-                logger.info(f"📡 Calling HubSpot API: get_page(limit={current_limit}, after={after})")
+                logger.info(f"📡 Page {page_num}: Calling HubSpot API get_page(limit={current_limit}, after={after})")
 
                 # Fetch deals with properties
                 deals_response = client.crm.deals.basic_api.get_page(
@@ -296,14 +302,13 @@ class HubSpotService:
                     after=after
                 )
 
-                logger.info(f"✓ API response: {len(deals_response.results)} deals returned")
+                logger.info(f"✓ Page {page_num} response: {len(deals_response.results)} deals returned")
 
                 # Normalize to RevTrust format
-                for deal in deals_response.results:
+                for i, deal in enumerate(deals_response.results, 1):
                     props = deal.properties
-                    logger.debug(f"   Deal: {props.get('dealname')} (stage: {props.get('dealstage')})")
 
-                    deals.append({
+                    normalized_deal = {
                         "id": deal.id,
                         "name": props.get("dealname", "Untitled Deal"),
                         "amount": float(props.get("amount", 0)) if props.get("amount") else 0,
@@ -314,22 +319,62 @@ class HubSpotService:
                         "last_modified_date": props.get("hs_lastmodifieddate"),
                         "last_activity_date": props.get("notes_last_updated"),
                         "owner_id": props.get("hubspot_owner_id")
-                    })
+                    }
+
+                    deals.append(normalized_deal)
+
+                    # Log first 5 deals with full details for debugging
+                    if len(deals) <= 5:
+                        logger.info(f"   📄 Deal {len(deals)} [FULL DATA]:")
+                        logger.info(f"      - ID: {normalized_deal['id']}")
+                        logger.info(f"      - Name: {normalized_deal['name']}")
+                        logger.info(f"      - Amount: ${normalized_deal['amount']}")
+                        logger.info(f"      - Stage: {normalized_deal['stage']}")
+                        logger.info(f"      - Pipeline: {normalized_deal['pipeline']}")
+                        logger.info(f"      - Close Date: {normalized_deal['close_date']}")
+                        logger.info(f"      - Created: {normalized_deal['created_date']}")
+                        logger.info(f"      - Last Modified: {normalized_deal['last_modified_date']}")
+                        logger.info(f"      - Last Activity: {normalized_deal['last_activity_date']}")
+                        logger.info(f"      - Owner ID: {normalized_deal['owner_id']}")
+                        logger.info(f"      - All Keys: {list(normalized_deal.keys())}")
 
                 total_fetched += len(deals_response.results)
+                logger.info(f"   Progress: {total_fetched}/{limit} deals fetched")
 
                 # Check if there are more pages
                 if hasattr(deals_response, 'paging') and deals_response.paging and hasattr(deals_response.paging, 'next'):
                     after = deals_response.paging.next.after
+                    logger.info(f"   More pages available, continuing with after={after}")
                 else:
                     # No more pages
+                    logger.info(f"   No more pages available")
                     break
 
-            logger.info(f"✅ HubSpot fetch_deals complete: {len(deals)} total deals")
+            logger.info(f"✅ HubSpot fetch_deals complete: {len(deals)} total deals fetched in {page_num} pages")
+
+            # Log summary statistics
+            if deals:
+                total_value = sum(d.get('amount', 0) for d in deals)
+                stages = {}
+                pipelines = {}
+                for d in deals:
+                    stage = d.get('stage', 'Unknown')
+                    pipeline = d.get('pipeline', 'Unknown')
+                    stages[stage] = stages.get(stage, 0) + 1
+                    pipelines[pipeline] = pipelines.get(pipeline, 0) + 1
+
+                logger.info(f"📊 HubSpot Data Summary:")
+                logger.info(f"   - Total Deals: {len(deals)}")
+                logger.info(f"   - Total Value: ${total_value:,.2f}")
+                logger.info(f"   - Stages: {stages}")
+                logger.info(f"   - Pipelines: {pipelines}")
+
             return deals
 
         except ApiException as e:
             logger.error(f"❌ HubSpot API error: {e}")
+            logger.error(f"   Connection ID: {connection_id}")
+            logger.error(f"   Total fetched before error: {total_fetched}")
             raise
 
     async def test_connection(self, connection_id: str) -> bool:

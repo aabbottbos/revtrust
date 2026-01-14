@@ -9,9 +9,12 @@ import os
 import hashlib
 import base64
 import secrets
+import logging
 from datetime import datetime, timedelta, timezone
 from app.services.encryption_service import get_encryption_service
 from prisma import Prisma
+
+logger = logging.getLogger(__name__)
 
 
 class SalesforceService:
@@ -170,19 +173,19 @@ class SalesforceService:
     ) -> List[Dict]:
         """Fetch opportunities (deals) from Salesforce"""
 
-        print(f"🔌 Fetching opportunities from Salesforce...")
-        print(f"   Connection ID: {connection_id}")
-        print(f"   Limit: {limit}")
+        logger.info(f"🔌 Fetching opportunities from Salesforce...")
+        logger.info(f"   Connection ID: {connection_id}")
+        logger.info(f"   Limit: {limit}")
 
         access_token, instance_url = await self.get_valid_token(connection_id)
-        print(f"   Instance URL: {instance_url}")
+        logger.info(f"   Instance URL: {instance_url}")
 
         # Initialize Salesforce client
         sf = Salesforce(
             instance_url=instance_url,
             session_id=access_token
         )
-        print(f"✓ Salesforce client initialized")
+        logger.info(f"✓ Salesforce client initialized")
 
         # Query opportunities
         query = """
@@ -208,15 +211,15 @@ class SalesforceService:
         LIMIT {}
         """.format(limit)
 
-        print(f"📊 Executing SOQL query...")
-        print(f"   Query: {query.strip()[:100]}...")
+        logger.info(f"📊 Executing SOQL query...")
+        logger.debug(f"   Query: {query.strip()}")
         result = sf.query(query)
-        print(f"✓ Query executed successfully")
-        print(f"   Total records returned: {result['totalSize']}")
-        print(f"   Records in batch: {len(result['records'])}")
+        logger.info(f"✓ Query executed successfully")
+        logger.info(f"   Total records returned: {result['totalSize']}")
+        logger.info(f"   Records in batch: {len(result['records'])}")
 
         # Normalize to RevTrust format
-        print(f"🔄 Normalizing {len(result['records'])} opportunities to RevTrust format...")
+        logger.info(f"🔄 Normalizing {len(result['records'])} opportunities to RevTrust format...")
         deals = []
         for i, opp in enumerate(result['records'], 1):
             deal = {
@@ -237,10 +240,37 @@ class SalesforceService:
                 "is_won": opp["IsWon"]
             }
             deals.append(deal)
-            if i <= 3:  # Log first 3 deals for debugging
-                print(f"   Deal {i}: {deal['name']} - ${deal['amount']} - {deal['stage']}")
+            if i <= 5:  # Log first 5 deals with full details for debugging
+                logger.info(f"   📄 Deal {i} [FULL DATA]:")
+                logger.info(f"      - ID: {deal['id']}")
+                logger.info(f"      - Name: {deal['name']}")
+                logger.info(f"      - Amount: ${deal['amount']}")
+                logger.info(f"      - Stage: {deal['stage']}")
+                logger.info(f"      - Close Date: {deal['close_date']}")
+                logger.info(f"      - Probability: {deal['probability']}")
+                logger.info(f"      - Owner: {deal['owner']}")
+                logger.info(f"      - Account: {deal['account']}")
+                logger.info(f"      - Created: {deal['created_date']}")
+                logger.info(f"      - Last Activity: {deal['last_activity_date']}")
+                logger.info(f"      - Last Modified: {deal['last_modified_date']}")
+                logger.info(f"      - Next Step: {deal['next_step']}")
+                logger.info(f"      - All Keys: {list(deal.keys())}")
 
-        print(f"✅ Successfully fetched and normalized {len(deals)} deals from Salesforce")
+        logger.info(f"✅ Successfully fetched and normalized {len(deals)} deals from Salesforce")
+
+        # Log summary statistics
+        if deals:
+            total_value = sum(d.get('amount', 0) for d in deals)
+            stages = {}
+            for d in deals:
+                stage = d.get('stage', 'Unknown')
+                stages[stage] = stages.get(stage, 0) + 1
+
+            logger.info(f"📊 Salesforce Data Summary:")
+            logger.info(f"   - Total Deals: {len(deals)}")
+            logger.info(f"   - Total Value: ${total_value:,.2f}")
+            logger.info(f"   - Stages: {stages}")
+
         return deals
 
     async def test_connection(self, connection_id: str) -> bool:

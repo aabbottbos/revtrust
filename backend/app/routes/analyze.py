@@ -7,6 +7,7 @@ from typing import Dict, Any, Optional, Literal
 import traceback
 import uuid
 import asyncio
+import logging
 from datetime import datetime, timezone
 from prisma import Prisma
 
@@ -18,6 +19,7 @@ from app.utils.file_validator import FileValidator
 from app.auth import get_current_user_id
 from app.utils.user_manager import get_user_manager
 
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -305,17 +307,26 @@ async def get_analysis_result(analysis_id: str) -> Dict[str, Any]:
     Only available after analysis is complete.
     Checks both in-memory store (manual uploads) and database (scheduled reviews).
     """
+    logger.info(f"🔍 get_analysis_result called for analysis_id: {analysis_id}")
+
     # First, check in-memory store for manual uploads
     if analysis_id in analysis_status_store:
+        logger.info(f"✓ Found analysis {analysis_id} in memory store")
         status_data = analysis_status_store[analysis_id]
 
+        logger.info(f"   Status: {status_data.get('status')}")
+        logger.info(f"   Source Type: {status_data.get('source_type')}")
+        logger.info(f"   CRM Provider: {status_data.get('crm_provider')}")
+
         if status_data["status"] == "failed":
+            logger.error(f"❌ Analysis {analysis_id} failed: {status_data.get('error')}")
             raise HTTPException(
                 status_code=500,
                 detail=f"Analysis failed: {status_data.get('error', 'Unknown error')}"
             )
 
         if status_data["status"] != "completed":
+            logger.warning(f"⚠️ Analysis {analysis_id} not complete, status: {status_data['status']}")
             raise HTTPException(
                 status_code=400,
                 detail=f"Analysis not complete. Current status: {status_data['status']}"
@@ -324,9 +335,23 @@ async def get_analysis_result(analysis_id: str) -> Dict[str, Any]:
         # Check if this is a CRM scan (data stored directly) or file upload (nested under "result")
         if "result" in status_data:
             # File upload format - nested structure
+            logger.info(f"   Format: File upload (nested result)")
             result = status_data["result"]
         else:
             # CRM scan format - data stored directly in status_data
+            logger.info(f"   Format: CRM scan (direct fields)")
+            logger.info(f"   Total deals in status_data: {status_data.get('total_deals')}")
+            logger.info(f"   Deals with issues: {status_data.get('deals_with_issues')}")
+            logger.info(f"   Violations count: {len(status_data.get('violations', []))}")
+            logger.info(f"   Deals summary count: {len(status_data.get('deals_summary', []))}")
+
+            # Log sample deals_summary for debugging
+            deals_summary = status_data.get("deals_summary", [])
+            if deals_summary:
+                logger.info(f"   📊 Sample deals_summary (first 3):")
+                for i, deal in enumerate(deals_summary[:3], 1):
+                    logger.info(f"      Deal {i}: {deal}")
+
             # Build the expected structure from direct fields
             result = {
                 "file_info": {
@@ -347,6 +372,11 @@ async def get_analysis_result(analysis_id: str) -> Dict[str, Any]:
                 "deals_summary": status_data.get("deals_summary", []),
                 "violations_by_deal": status_data.get("violations_by_deal", {}),
             }
+
+            logger.info(f"   Built result structure:")
+            logger.info(f"      - violations count: {len(result['violations'])}")
+            logger.info(f"      - deals_summary count: {len(result['deals_summary'])}")
+            logger.info(f"      - total_deals: {result['analysis']['total_deals']}")
     else:
         # Not in memory, check database for scheduled review runs
         prisma = Prisma()
@@ -491,43 +521,51 @@ async def get_analysis_result(analysis_id: str) -> Dict[str, Any]:
     # DEALS VIEW AGGREGATIONS
     # Group by deal for deals-centric view
     # =========================================
-    deals_summary = []
-    for deal_id, deal_violations in violations_by_deal.items():
-        # Use case-insensitive comparison for severity (config uses UPPERCASE, we normalize to lowercase)
-        critical_count = sum(1 for v in deal_violations if v.get("severity", "").lower() == "critical")
-        warning_count = sum(1 for v in deal_violations if v.get("severity", "").lower() == "warning")
-        info_count = sum(1 for v in deal_violations if v.get("severity", "").lower() == "info")
+    # Check if deals_summary already exists in result (from CRM scan)
+    if result.get("deals_summary"):
+        # CRM scan already built deals_summary with proper deal data
+        logger.info(f"   Using pre-built deals_summary from CRM scan ({len(result['deals_summary'])} deals)")
+        deals_summary = result["deals_summary"]
+    else:
+        # File upload: build deals_summary from violations
+        logger.info(f"   Building deals_summary from violations (file upload)")
+        deals_summary = []
+        for deal_id, deal_violations in violations_by_deal.items():
+            # Use case-insensitive comparison for severity (config uses UPPERCASE, we normalize to lowercase)
+            critical_count = sum(1 for v in deal_violations if v.get("severity", "").lower() == "critical")
+            warning_count = sum(1 for v in deal_violations if v.get("severity", "").lower() == "warning")
+            info_count = sum(1 for v in deal_violations if v.get("severity", "").lower() == "info")
 
-        # Determine deal severity (highest wins)
-        if critical_count > 0:
-            deal_severity = "critical"
-        elif warning_count > 0:
-            deal_severity = "warning"
-        else:
-            deal_severity = "info"
+            # Determine deal severity (highest wins)
+            if critical_count > 0:
+                deal_severity = "critical"
+            elif warning_count > 0:
+                deal_severity = "warning"
+            else:
+                deal_severity = "info"
 
-        # Get deal metadata from first violation
-        first_violation = deal_violations[0] if deal_violations else {}
+            # Get deal metadata from first violation
+            first_violation = deal_violations[0] if deal_violations else {}
 
-        deals_summary.append({
-            "deal_id": deal_id,
-            "deal_name": first_violation.get("deal_name", deal_id),
-            "account_name": first_violation.get("account_name"),
-            "amount": first_violation.get("amount"),
-            "stage": first_violation.get("stage"),
-            "close_date": first_violation.get("close_date"),
-            "severity": deal_severity,
-            "total_issues": len(deal_violations),
-            "critical_count": critical_count,
-            "warning_count": warning_count,
-            "info_count": info_count,
-            "issue_types": list(set(v.get("rule_name", "Unknown") for v in deal_violations)),
-        })
+            deals_summary.append({
+                "deal_id": deal_id,
+                "deal_name": first_violation.get("deal_name", deal_id),
+                "account_name": first_violation.get("account_name"),
+                "amount": first_violation.get("amount"),
+                "stage": first_violation.get("stage"),
+                "close_date": first_violation.get("close_date"),
+                "severity": deal_severity,
+                "total_issues": len(deal_violations),
+                "critical_count": critical_count,
+                "warning_count": warning_count,
+                "info_count": info_count,
+                "issue_types": list(set(v.get("rule_name", "Unknown") for v in deal_violations)),
+            })
 
-    # Sort deals by severity, then by issue count
-    deals_summary.sort(
-        key=lambda x: (severity_order.get(x["severity"], 3), -x["total_issues"])
-    )
+        # Sort deals by severity, then by issue count
+        deals_summary.sort(
+            key=lambda x: (severity_order.get(x["severity"], 3), -x["total_issues"])
+        )
 
     # Count totals
     total_issues = len(result.get("violations", []))
@@ -538,6 +576,23 @@ async def get_analysis_result(analysis_id: str) -> Dict[str, Any]:
     # Get source information from status_data
     source_type = status_data.get("source_type", "upload")
     crm_provider = status_data.get("crm_provider")
+    crm_connection_id = status_data.get("crm_connection_id")
+
+    logger.info(f"📤 Returning analysis result for {analysis_id}:")
+    logger.info(f"   - Total deals: {total_deals}")
+    logger.info(f"   - Deals with issues: {deals_with_issues}")
+    logger.info(f"   - Total issues: {total_issues}")
+    logger.info(f"   - Issues summary count: {len(issues_summary)}")
+    logger.info(f"   - Deals summary count: {len(deals_summary)}")
+    logger.info(f"   - Source type: {source_type}")
+    logger.info(f"   - CRM provider: {crm_provider}")
+    logger.info(f"   - CRM connection ID: {crm_connection_id}")
+
+    # Log first few deals_summary items
+    if deals_summary:
+        logger.info(f"   📊 Deals summary (first 3):")
+        for i, deal in enumerate(deals_summary[:3], 1):
+            logger.info(f"      {i}. {deal.get('deal_name')} - {deal.get('total_issues')} issues")
 
     # Return enhanced result
     return {
@@ -546,6 +601,7 @@ async def get_analysis_result(analysis_id: str) -> Dict[str, Any]:
         "analyzed_at": status_data.get("updated_at"),
         "source_type": source_type,  # "upload" or "crm"
         "crm_provider": crm_provider,  # "salesforce", "hubspot", or None
+        "crm_connection_id": crm_connection_id,  # CRM connection ID for re-scanning
         "total_deals": total_deals,
         "deals_with_issues": deals_with_issues,
         "deals_without_issues": deals_without_issues,

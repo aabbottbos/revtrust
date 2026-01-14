@@ -16,6 +16,7 @@ import {
   ChevronDown,
   ChevronUp,
   Users,
+  RefreshCw,
 } from "lucide-react"
 import { useState } from "react"
 
@@ -40,6 +41,9 @@ interface IssuesViewProps {
   totalDeals: number
   onIssueClick?: (issueType: string) => void
   onReviewClick?: () => void
+  onScanAgain?: () => void
+  isScanning?: boolean
+  sourceType?: "upload" | "crm"
   filter?: IssuesFilter
   onFilterChange?: (filter: IssuesFilter) => void
 }
@@ -201,6 +205,9 @@ export function IssuesView({
   totalDeals,
   onIssueClick,
   onReviewClick,
+  onScanAgain,
+  isScanning = false,
+  sourceType = "upload",
   filter = "all",
   onFilterChange,
 }: IssuesViewProps) {
@@ -272,9 +279,26 @@ export function IssuesView({
               )}
             </h3>
             {totalIssues > 0 && onReviewClick && (
-              <Button size="sm" onClick={onReviewClick}>
-                Review All
-              </Button>
+              <div className="flex items-center gap-2">
+                {sourceType === "crm" && onScanAgain && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={onScanAgain}
+                    disabled={isScanning}
+                  >
+                    <RefreshCw className={`w-4 h-4 mr-2 ${isScanning ? 'animate-spin' : ''}`} />
+                    Scan Again
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  onClick={onReviewClick}
+                  className="bg-revtrust-blue hover:bg-blue-700 text-white"
+                >
+                  {sourceType === "crm" ? "Review & Fix" : "Review"}
+                </Button>
+              </div>
             )}
           </div>
         </div>

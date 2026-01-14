@@ -82,6 +82,7 @@ interface AnalysisResult {
   analyzed_at: string
   source_type: "upload" | "crm"
   crm_provider?: "salesforce" | "hubspot" | null
+  crm_connection_id?: string | null
   total_deals: number
   deals_with_issues: number
   health_score: number
@@ -112,6 +113,7 @@ export default function ResultsPage() {
   const [showWizard, setShowWizard] = useState(false)
   const [activeTab, setActiveTab] = useState<"deals" | "issues">("deals")
   const [initialDealId, setInitialDealId] = useState<string | null>(null)
+  const [isScanning, setIsScanning] = useState(false)
 
   // Filter state for each view - initialized from URL params
   const [dealsFilter, setDealsFilter] = useState<DealsFilter>(() => {
@@ -263,6 +265,86 @@ export default function ResultsPage() {
     setInitialDealId(null)
   }
 
+  const handleScanAgain = async () => {
+    if (!result?.crm_connection_id) {
+      console.error("No CRM connection ID available for re-scanning")
+      return
+    }
+
+    try {
+      setIsScanning(true)
+
+      // Trigger a new scan
+      const response = await authenticatedFetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/scan/crm/${result.crm_connection_id}`,
+        {
+          method: "POST",
+        }
+      )
+
+      if (!response.ok) {
+        throw new Error("Failed to start scan")
+      }
+
+      const data = await response.json()
+      const newAnalysisId = data.analysis_id
+
+      // Poll for the new scan to complete
+      let attempts = 0
+      const maxAttempts = 60 // 60 attempts * 2 seconds = 2 minutes max
+
+      const pollStatus = async () => {
+        attempts++
+        if (attempts > maxAttempts) {
+          throw new Error("Scan timed out")
+        }
+
+        const statusResponse = await authenticatedFetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/analysis/${newAnalysisId}/status`
+        )
+
+        if (!statusResponse.ok) {
+          throw new Error("Failed to check scan status")
+        }
+
+        const statusData = await statusResponse.json()
+
+        if (statusData.status === "completed") {
+          // Fetch the new results
+          const resultsResponse = await authenticatedFetch(
+            `${process.env.NEXT_PUBLIC_API_URL}/api/analysis/${newAnalysisId}`
+          )
+
+          if (!resultsResponse.ok) {
+            throw new Error("Failed to load new results")
+          }
+
+          const newResult = await resultsResponse.json()
+          setResult(newResult)
+          setIsScanning(false)
+
+          // Track the re-scan
+          analytics.analysisCompleted(
+            newAnalysisId,
+            newResult.critical_issues + newResult.warning_issues,
+            newResult.health_score
+          )
+        } else if (statusData.status === "failed") {
+          throw new Error(statusData.error || "Scan failed")
+        } else {
+          // Still processing, poll again
+          setTimeout(pollStatus, 2000)
+        }
+      }
+
+      pollStatus()
+    } catch (err) {
+      console.error("Failed to scan again:", err)
+      setError(err instanceof Error ? err.message : "Failed to re-scan")
+      setIsScanning(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -303,15 +385,6 @@ export default function ResultsPage() {
               </p>
             </div>
             <div className="flex items-center gap-3">
-              {result.deals_with_issues > 0 && (
-                <Button
-                  onClick={() => setShowWizard(true)}
-                  className="bg-revtrust-blue hover:bg-blue-700"
-                >
-                  <Wrench className="w-4 h-4 mr-2" />
-                  Review & Fix Issues
-                </Button>
-              )}
               <ExportButton analysisId={analysisId} filename={result.file_name} />
             </div>
           </div>
@@ -378,6 +451,9 @@ export default function ResultsPage() {
                   dealsWithIssues={result.deals_with_issues}
                   onDealClick={handleDealClick}
                   onReviewClick={() => setShowWizard(true)}
+                  onScanAgain={result.source_type === "crm" ? handleScanAgain : undefined}
+                  isScanning={isScanning}
+                  sourceType={result.source_type}
                   filter={dealsFilter}
                   onFilterChange={handleDealsFilterChange}
                 />
@@ -393,6 +469,9 @@ export default function ResultsPage() {
                   totalDeals={result.total_deals}
                   onIssueClick={handleDealClick}
                   onReviewClick={() => setShowWizard(true)}
+                  onScanAgain={result.source_type === "crm" ? handleScanAgain : undefined}
+                  isScanning={isScanning}
+                  sourceType={result.source_type}
                   filter={issuesFilter}
                   onFilterChange={handleIssuesFilterChange}
                 />
