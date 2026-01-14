@@ -4,10 +4,12 @@ Stripe routes for checkout and subscription management
 
 from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel
+from typing import Optional
 from app.services.stripe_service import get_stripe_service
-from app.auth import get_current_user_id
+from app.auth import get_current_user_id, get_current_user_email
 from prisma import Prisma
 import os
+import requests
 
 router = APIRouter(prefix="/api/stripe", tags=["Stripe"])
 
@@ -19,7 +21,8 @@ class CreateCheckoutRequest(BaseModel):
 
 @router.post("/create-checkout-session")
 async def create_checkout_session(
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(get_current_user_id),
+    user_email: Optional[str] = Depends(get_current_user_email)
 ):
     """Create Stripe checkout session for Pro subscription"""
 
@@ -32,8 +35,39 @@ async def create_checkout_session(
             where={"clerkId": user_id}
         )
 
+        # Auto-create user if they don't exist yet
         if not user:
-            raise HTTPException(404, "User not found")
+            # If email not in token, fetch from Clerk API
+            if not user_email:
+                import requests
+                clerk_secret = os.getenv("CLERK_SECRET_KEY")
+                headers = {"Authorization": f"Bearer {clerk_secret}"}
+
+                try:
+                    response = requests.get(
+                        f"https://api.clerk.com/v1/users/{user_id}",
+                        headers=headers,
+                        timeout=5
+                    )
+                    if response.ok:
+                        clerk_user = response.json()
+                        email_addresses = clerk_user.get("email_addresses", [])
+                        if email_addresses:
+                            user_email = email_addresses[0].get("email_address")
+                except Exception as e:
+                    print(f"Failed to fetch user from Clerk API: {e}")
+
+            if not user_email:
+                raise HTTPException(400, "Email required for new users. Please ensure your email is verified in your account.")
+
+            user = await prisma.user.create(
+                data={
+                    "clerkId": user_id,
+                    "email": user_email,
+                    "subscriptionTier": "free",
+                    "subscriptionStatus": "active"
+                }
+            )
 
         # Check if already Pro
         if user.subscriptionTier == "pro" and user.subscriptionStatus == "active":

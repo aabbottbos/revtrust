@@ -10,13 +10,17 @@ import { Check, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { analytics } from "@/lib/analytics"
 import { useAuthenticatedFetch } from "@/hooks/useAuthenticatedFetch"
+import { useSubscription } from "@/hooks/useSubscription"
 
 export default function PricingPage() {
   const router = useRouter()
   const { userId } = useAuth()
   const authenticatedFetch = useAuthenticatedFetch()
+  const { subscription, loading: subscriptionLoading } = useSubscription()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const isPaidUser = subscription?.tier && ["pro", "team", "enterprise"].includes(subscription.tier)
 
   const handleUpgrade = async () => {
     if (!userId) {
@@ -101,7 +105,11 @@ export default function PricingPage() {
           {/* Pro */}
           <Card className="p-8 border-2 border-revtrust-blue relative">
             <div className="absolute -top-3 right-4">
-              <Badge className="bg-revtrust-blue text-white">MOST POPULAR</Badge>
+              {subscription?.tier === "pro" ? (
+                <Badge className="bg-green-600 text-white">CURRENT PLAN</Badge>
+              ) : (
+                <Badge className="bg-revtrust-blue text-white">MOST POPULAR</Badge>
+              )}
             </div>
             <Badge className="mb-4 bg-revtrust-blue text-white">PRO</Badge>
             <h3 className="text-2xl font-bold mb-2">AI Deal Coach</h3>
@@ -126,23 +134,34 @@ export default function PricingPage() {
                 AI Pipeline Review
               </li>
             </ul>
-            <Button
-              className="w-full bg-revtrust-blue"
-              onClick={handleUpgrade}
-              disabled={loading}
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Loading...
-                </>
-              ) : (
-                "Start Pro Trial"
-              )}
-            </Button>
-            <p className="text-xs text-center mt-3 text-slate-600">
-              30-day money-back guarantee
-            </p>
+            {subscription?.tier === "pro" ? (
+              <Button
+                className="w-full bg-revtrust-blue"
+                onClick={() => router.push("/subscription")}
+              >
+                Manage Subscription
+              </Button>
+            ) : (
+              <>
+                <Button
+                  className="w-full bg-revtrust-blue"
+                  onClick={handleUpgrade}
+                  disabled={loading || subscriptionLoading}
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Loading...
+                    </>
+                  ) : (
+                    "Start Pro Trial"
+                  )}
+                </Button>
+                <p className="text-xs text-center mt-3 text-slate-600">
+                  30-day money-back guarantee
+                </p>
+              </>
+            )}
           </Card>
 
           {/* Enterprise */}

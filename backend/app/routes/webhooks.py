@@ -223,7 +223,12 @@ async def handle_subscription_updated(subscription):
 
     try:
         # Map Stripe status to our status
-        our_status = "active" if status == "active" else "cancelled"
+        # active, trialing = user has access
+        # past_due, unpaid, canceled, incomplete, incomplete_expired = no access
+        if status in ["active", "trialing"]:
+            our_status = "active"
+        else:
+            our_status = "cancelled"
 
         result = await prisma.user.update_many(
             where={"stripeSubscriptionId": subscription_id},

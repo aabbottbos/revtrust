@@ -23,23 +23,47 @@ function SubscriptionSuccessContent() {
   useEffect(() => {
     // Poll for subscription status (webhook may take a few seconds)
     const checkSubscription = async () => {
-      try {
-        // Wait a moment for webhook to process
-        await new Promise(resolve => setTimeout(resolve, 2000))
+      let attempts = 0
+      const maxAttempts = 15 // Poll for up to 30 seconds (15 * 2s)
 
-        const response = await authenticatedFetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/stripe/subscription-status`
-        )
+      const poll = async () => {
+        try {
+          attempts++
 
-        if (response.ok) {
-          const data = await response.json()
-          setSubscriptionActive(data.tier === "pro" && data.status === "active")
+          const response = await authenticatedFetch(
+            `${process.env.NEXT_PUBLIC_API_URL}/api/user/subscription`
+          )
+
+          if (response.ok) {
+            const data = await response.json()
+            const isActive = data.tier === "pro" && data.status === "active"
+
+            if (isActive) {
+              setSubscriptionActive(true)
+              setVerifying(false)
+              return true
+            }
+          }
+
+          // If not active yet and haven't exceeded max attempts, try again
+          if (attempts < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, 2000))
+            return poll()
+          } else {
+            // Give up after max attempts
+            setVerifying(false)
+            return false
+          }
+        } catch (err) {
+          console.error("Error checking subscription:", err)
+          setVerifying(false)
+          return false
         }
-      } catch (err) {
-        console.error("Error checking subscription:", err)
-      } finally {
-        setVerifying(false)
       }
+
+      // Wait 2 seconds before first check to give webhook time to process
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      await poll()
     }
 
     if (sessionId) {

@@ -132,11 +132,13 @@ async def get_current_user_email(authorization: Optional[str] = Header(None)) ->
     Returns None if not authenticated or email not available.
     """
     if not authorization:
+        print("⚠️  No authorization header for email extraction")
         return None
 
     token = authorization.replace("Bearer ", "").strip()
 
     if not token:
+        print("⚠️  Empty token for email extraction")
         return None
 
     try:
@@ -150,10 +152,23 @@ async def get_current_user_email(authorization: Optional[str] = Header(None)) ->
             options={"verify_exp": True, "verify_aud": False}
         )
 
-        # Clerk stores email in the token
-        return payload.get("email") or payload.get("email_address")
+        # Clerk can store email in various fields
+        email = (
+            payload.get("email") or
+            payload.get("email_address") or
+            payload.get("primary_email_address_id") or
+            (payload.get("email_addresses", [{}])[0].get("email_address") if payload.get("email_addresses") else None)
+        )
 
-    except Exception:
+        if email:
+            print(f"✅ Extracted email: {email}")
+        else:
+            print(f"⚠️  No email found in token. Available keys: {list(payload.keys())}")
+
+        return email
+
+    except Exception as e:
+        print(f"❌ Error extracting email from token: {e}")
         return None
 
 

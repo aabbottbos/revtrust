@@ -45,7 +45,7 @@ interface DashboardStats {
 
 export default function DashboardPage() {
   const router = useRouter()
-  const { user } = useUser()
+  const { user, isLoaded } = useUser()
   const authenticatedFetch = useAuthenticatedFetch()
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
@@ -54,8 +54,12 @@ export default function DashboardPage() {
   const isPaidUser = stats?.subscriptionTier && ["pro", "team", "enterprise"].includes(stats.subscriptionTier)
 
   useEffect(() => {
-    fetchDashboardStats()
-  }, [])
+    // Wait for Clerk to finish loading before fetching
+    if (isLoaded && user) {
+      fetchDashboardStats()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoaded, user])
 
   const fetchDashboardStats = async () => {
     try {
@@ -244,22 +248,22 @@ export default function DashboardPage() {
       {/* Feature Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         {/* Saved Scans Card */}
-        <Card className={`relative overflow-hidden ${!isPaidUser ? "opacity-90" : ""}`}>
-          {!isPaidUser && (
-            <div className="absolute top-4 right-4">
-              <Badge variant="secondary" className="bg-amber-100 text-amber-700 border-amber-200">
-                <Lock className="h-3 w-3 mr-1" />
-                Pro
-              </Badge>
-            </div>
-          )}
+        <Card className="relative overflow-hidden">
           <CardHeader>
             <div className="flex items-center gap-3">
               <div className={`p-2 rounded-lg ${isPaidUser ? "bg-purple-100" : "bg-slate-100"}`}>
                 <BookmarkCheck className={`h-5 w-5 ${isPaidUser ? "text-purple-600" : "text-slate-400"}`} />
               </div>
               <div>
-                <CardTitle className="text-lg">Saved Scans</CardTitle>
+                <CardTitle className="text-lg">
+                  Saved Scans
+                  {!isPaidUser && (
+                    <Badge variant="secondary" className="ml-2 bg-amber-100 text-amber-700 border-amber-200">
+                      <Lock className="h-3 w-3 mr-1" />
+                      Pro
+                    </Badge>
+                  )}
+                </CardTitle>
                 <CardDescription>
                   {isPaidUser
                     ? `${stats?.savedScansCount ?? 0} saved configuration${(stats?.savedScansCount ?? 0) !== 1 ? "s" : ""}`
@@ -297,22 +301,22 @@ export default function DashboardPage() {
         </Card>
 
         {/* Scheduled Scans Card */}
-        <Card className={`relative overflow-hidden ${!isPaidUser ? "opacity-90" : ""}`}>
-          {!isPaidUser && (
-            <div className="absolute top-4 right-4">
-              <Badge variant="secondary" className="bg-amber-100 text-amber-700 border-amber-200">
-                <Lock className="h-3 w-3 mr-1" />
-                Pro
-              </Badge>
-            </div>
-          )}
+        <Card className="relative overflow-hidden">
           <CardHeader>
             <div className="flex items-center gap-3">
               <div className={`p-2 rounded-lg ${isPaidUser ? "bg-green-100" : "bg-slate-100"}`}>
                 <Calendar className={`h-5 w-5 ${isPaidUser ? "text-green-600" : "text-slate-400"}`} />
               </div>
               <div>
-                <CardTitle className="text-lg">Scheduled Scans</CardTitle>
+                <CardTitle className="text-lg">
+                  Scheduled Scans
+                  {!isPaidUser && (
+                    <Badge variant="secondary" className="ml-2 bg-amber-100 text-amber-700 border-amber-200">
+                      <Lock className="h-3 w-3 mr-1" />
+                      Pro
+                    </Badge>
+                  )}
+                </CardTitle>
                 <CardDescription>
                   {isPaidUser
                     ? `${stats?.scheduledScansCount ?? 0} active schedule${(stats?.scheduledScansCount ?? 0) !== 1 ? "s" : ""}`

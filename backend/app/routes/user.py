@@ -5,18 +5,20 @@ from fastapi import APIRouter, Depends, HTTPException
 from typing import Dict, Any
 from prisma import Prisma
 
-from app.auth import get_current_user_id
+from app.auth import get_current_user_id, get_current_user_email
 
 router = APIRouter(prefix="/api/user", tags=["User"])
 
 
 @router.get("/subscription")
 async def get_subscription_status(
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(get_current_user_id),
+    user_email: str = Depends(get_current_user_email)
 ) -> Dict[str, Any]:
     """
     Get current user's subscription status.
     Returns tier, status, and feature access flags.
+    Auto-creates user if they don't exist.
     """
     prisma = Prisma()
     await prisma.connect()
@@ -27,15 +29,27 @@ async def get_subscription_status(
         )
 
         if not user:
-            # New user - return free tier defaults
-            return {
-                "tier": "free",
-                "status": "active",
-                "hasAIAccess": False,
-                "hasCRMWrite": False,
-                "hasTeamFeatures": False,
-                "hasScheduledReviews": False,
-            }
+            # Auto-create new user in database
+            if user_email:
+                user = await prisma.user.create(
+                    data={
+                        "clerkId": user_id,
+                        "email": user_email,
+                        "subscriptionTier": "free",
+                        "subscriptionStatus": "active"
+                    }
+                )
+            else:
+                # Fallback if email not available
+                return {
+                    "tier": "free",
+                    "status": "active",
+                    "hasAIAccess": False,
+                    "hasCRMWrite": False,
+                    "hasTeamFeatures": False,
+                    "hasScheduledReviews": False,
+                    "hasActiveSubscription": False,
+                }
 
         # Define feature access by tier
         tier = user.subscriptionTier or "free"
