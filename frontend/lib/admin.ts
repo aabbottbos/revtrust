@@ -19,7 +19,7 @@ export async function verifyAdminAccess(): Promise<{
   isAdmin: boolean
 }> {
   // Get the current authenticated user from Clerk
-  const { userId, getToken } = auth()
+  const { userId, getToken } = await auth()
 
   // Redirect to sign-in if not authenticated
   if (!userId) {
