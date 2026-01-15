@@ -5,6 +5,7 @@
  * Displays how many deals have issues, grouped by deal with severity indicators
  */
 
+import { useState } from "react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -17,7 +18,9 @@ import {
   DollarSign,
   Calendar,
   RefreshCw,
+  Mail,
 } from "lucide-react"
+import { EmailTemplateModal } from "@/components/ai/EmailTemplateModal"
 
 interface DealSummary {
   deal_id: string
@@ -40,6 +43,8 @@ interface DealsViewProps {
   dealsSummary: DealSummary[]
   totalDeals: number
   dealsWithIssues: number
+  analysisId?: string
+  hasAIAccess?: boolean
   onDealClick?: (dealId: string) => void
   onReviewClick?: () => void
   onScanAgain?: () => void
@@ -83,6 +88,8 @@ export function DealsView({
   dealsSummary,
   totalDeals,
   dealsWithIssues,
+  analysisId,
+  hasAIAccess = false,
   onDealClick,
   onReviewClick,
   onScanAgain,
@@ -91,10 +98,18 @@ export function DealsView({
   filter = "all",
   onFilterChange,
 }: DealsViewProps) {
+  const [emailModalOpen, setEmailModalOpen] = useState(false)
+  const [selectedDeal, setSelectedDeal] = useState<{ id: string; name: string } | null>(null)
+
   const healthyDeals = totalDeals - dealsWithIssues
   const criticalDeals = dealsSummary.filter(d => d.severity === "critical").length
   const warningDeals = dealsSummary.filter(d => d.severity === "warning").length
   const infoDeals = dealsSummary.filter(d => d.severity === "info").length
+
+  const handleGenerateEmail = (dealId: string, dealName: string) => {
+    setSelectedDeal({ id: dealId, name: dealName })
+    setEmailModalOpen(true)
+  }
 
   // Filter deals based on selected filter
   const filteredDeals = filter === "all"
@@ -295,7 +310,23 @@ export function DealsView({
                         </div>
                       </div>
                     </div>
-                    <ChevronRight className="h-5 w-5 text-slate-400 flex-shrink-0" />
+                    <div className="flex items-center gap-2">
+                      {hasAIAccess && analysisId && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleGenerateEmail(deal.deal_id, deal.deal_name)
+                          }}
+                          className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                        >
+                          <Mail className="w-4 h-4 mr-1" />
+                          Email
+                        </Button>
+                      )}
+                      <ChevronRight className="h-5 w-5 text-slate-400 flex-shrink-0" />
+                    </div>
                   </div>
                 </div>
               )
@@ -303,6 +334,20 @@ export function DealsView({
           </div>
         )}
       </Card>
+
+      {/* Email Template Modal */}
+      {hasAIAccess && analysisId && (
+        <EmailTemplateModal
+          isOpen={emailModalOpen}
+          onClose={() => {
+            setEmailModalOpen(false)
+            setSelectedDeal(null)
+          }}
+          dealId={selectedDeal?.id}
+          analysisId={analysisId}
+          dealName={selectedDeal?.name}
+        />
+      )}
     </div>
   )
 }

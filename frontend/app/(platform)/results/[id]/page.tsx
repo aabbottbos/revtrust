@@ -25,6 +25,7 @@ import {
   AIInsightsSection,
 } from "@/components/results"
 import type { DealsFilter, IssuesFilter } from "@/components/results"
+import { AICoachChat } from "@/components/ai/AICoachChat"
 
 interface DealSummary {
   deal_id: string
@@ -105,7 +106,7 @@ export default function ResultsPage() {
   const searchParams = useSearchParams()
   const analysisId = params.id as string
   const authenticatedFetch = useAuthenticatedFetch()
-  const { hasAIAccess, loading: subscriptionLoading } = useSubscription()
+  const { subscription, hasAIAccess, loading: subscriptionLoading } = useSubscription()
 
   const [result, setResult] = useState<AnalysisResult | null>(null)
   const [loading, setLoading] = useState(true)
@@ -449,6 +450,8 @@ export default function ResultsPage() {
                   dealsSummary={result.deals_summary || []}
                   totalDeals={result.total_deals}
                   dealsWithIssues={result.deals_with_issues}
+                  analysisId={analysisId}
+                  hasAIAccess={hasAIAccess}
                   onDealClick={handleDealClick}
                   onReviewClick={() => setShowWizard(true)}
                   onScanAgain={result.source_type === "crm" ? handleScanAgain : undefined}
@@ -514,6 +517,11 @@ export default function ResultsPage() {
             refetchFlaggedDeals()
           }}
         />
+      )}
+
+      {/* AI Coach Chat - Available for Pro users */}
+      {subscription.hasAIAccess && (
+        <AICoachChat analysisId={analysisId} />
       )}
     </div>
   )

@@ -135,7 +135,7 @@ export function DealReviewWizard({
   } | null>(null)
   const [activeTab, setActiveTab] = useState<"rules" | "ai">("rules")
 
-  const { hasAIAccess } = useSubscription()
+  const { hasAIAccess, loading: subscriptionLoading } = useSubscription()
 
   // Find initial index based on initialDealId (can be id, crm_id, or name)
   const initialIndex = useMemo(() => {
@@ -371,7 +371,11 @@ export function DealReviewWizard({
                           <Sparkles className="h-5 w-5 text-purple-500" />
                           AI Recommendations
                         </h3>
-                        {hasAIAccess ? (
+                        {subscriptionLoading ? (
+                          <div className="flex items-center justify-center py-8">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+                          </div>
+                        ) : hasAIAccess ? (
                           <AIInsightsContent issues={businessRuleIssues} />
                         ) : (
                           <AIInsightsLocked />

@@ -8,7 +8,7 @@ import traceback
 import logging
 from dotenv import load_dotenv
 
-from app.routes import analyze, health, ai_analysis, stripe_routes, webhooks, feedback, analytics, admin, crm_oauth, scheduled_reviews, output_templates, organizations, forecast, crm_write, email_test, user, rules, admin_prompts, admin_users, dashboard, scan, settings, saved_scans
+from app.routes import analyze, health, ai_analysis, ai_chat, ai_email, stripe_routes, webhooks, feedback, analytics, admin, crm_oauth, scheduled_reviews, output_templates, organizations, forecast, crm_write, email_test, user, rules, admin_prompts, admin_users, dashboard, scan, settings, saved_scans
 from app.services.scheduler_service import get_scheduler_service
 
 load_dotenv()
@@ -117,6 +117,8 @@ async def add_process_time_header(request: Request, call_next):
 app.include_router(health.router, prefix="/api", tags=["Health"])
 app.include_router(analyze.router, prefix="/api", tags=["Analysis"])
 app.include_router(ai_analysis.router, tags=["AI Analysis"])
+app.include_router(ai_chat.router, tags=["AI Chat"])
+app.include_router(ai_email.router, tags=["AI Email"])
 app.include_router(stripe_routes.router, tags=["Stripe"])
 app.include_router(webhooks.router, tags=["Webhooks"])
 app.include_router(feedback.router, tags=["Feedback"])
