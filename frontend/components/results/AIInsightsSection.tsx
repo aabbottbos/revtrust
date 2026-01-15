@@ -319,19 +319,30 @@ export function AIInsightsSection({
           return
         }
 
-        // If not, trigger AI analysis
-        const triggerResponse = await authenticatedFetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/ai/analyze/${analysisId}`,
-          { method: "POST" }
-        )
+        // If not found (404), trigger AI analysis
+        if (checkResponse.status === 404) {
+          const triggerResponse = await authenticatedFetch(
+            `${process.env.NEXT_PUBLIC_API_URL}/api/ai/analyze/${analysisId}`,
+            { method: "POST" }
+          )
 
-        if (!triggerResponse.ok) {
-          throw new Error("Failed to start AI analysis")
+          if (!triggerResponse.ok) {
+            const errorData = await triggerResponse.json().catch(() => ({}))
+            throw new Error(errorData.detail || "Failed to start AI analysis")
+          }
+        } else {
+          // Some other error occurred
+          throw new Error(`Failed to fetch AI analysis: ${checkResponse.statusText}`)
         }
 
         // Poll for results
+        let pollAttempts = 0
+        const maxPollAttempts = 20 // 20 attempts * 3 seconds = 60 seconds max
+
         const pollInterval = setInterval(async () => {
           try {
+            pollAttempts++
+
             const resultResponse = await authenticatedFetch(
               `${process.env.NEXT_PUBLIC_API_URL}/api/ai/analysis/${analysisId}`
             )
@@ -344,19 +355,22 @@ export function AIInsightsSection({
                 clearInterval(pollInterval)
               }
             }
+
+            // Stop polling after max attempts
+            if (pollAttempts >= maxPollAttempts) {
+              clearInterval(pollInterval)
+              setLoading(false)
+              setError("AI analysis is taking longer than expected. Please refresh to check results.")
+            }
           } catch (err) {
-            // Continue polling
+            // Continue polling on errors (network issues, etc.)
+            if (pollAttempts >= maxPollAttempts) {
+              clearInterval(pollInterval)
+              setLoading(false)
+              setError("Failed to complete AI analysis. Please try again later.")
+            }
           }
         }, 3000)
-
-        // Stop polling after 60 seconds
-        setTimeout(() => {
-          clearInterval(pollInterval)
-          if (loading) {
-            setLoading(false)
-            setError("AI analysis is taking longer than expected. Please refresh to check results.")
-          }
-        }, 60000)
 
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load AI insights")
@@ -385,16 +399,17 @@ export function AIInsightsSection({
         <div className="text-center py-8">
           <AlertCircle className="w-12 h-12 text-orange-500 mx-auto mb-4" />
           <p className="text-slate-600 mb-4">{error}</p>
-          <Button
-            variant="outline"
-            onClick={() => {
-              setError(null)
-              setLoading(true)
-              // Retry logic would go here
-            }}
-          >
-            Retry
-          </Button>
+          {!error.includes("not available") && !error.includes("re-scanning") && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                setError(null)
+                window.location.reload()
+              }}
+            >
+              Retry
+            </Button>
+          )}
         </div>
       ) : aiAnalysis ? (
         <AIInsightsContent

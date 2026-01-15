@@ -17,8 +17,14 @@ function SubscriptionSuccessContent() {
   const [copied, setCopied] = useState(false)
   const [verifying, setVerifying] = useState(true)
   const [subscriptionActive, setSubscriptionActive] = useState(false)
+  const [referralLink, setReferralLink] = useState("")
 
-  const referralLink = `${window.location.origin}?ref=${userId}`
+  // Set referral link on client side only
+  useEffect(() => {
+    if (typeof window !== "undefined" && userId) {
+      setReferralLink(`${window.location.origin}?ref=${userId}`)
+    }
+  }, [userId])
 
   useEffect(() => {
     // Poll for subscription status (webhook may take a few seconds)

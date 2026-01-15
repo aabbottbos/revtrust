@@ -3,8 +3,10 @@ AI Analysis Routes
 Endpoints for AI-powered deal insights
 """
 
+import os
 from fastapi import APIRouter, HTTPException, Depends
 from typing import Dict, Any, List
+from prisma import Prisma
 from app.services.ai_service import get_ai_service, AIAnalysisResult, safe_amount_to_float
 from app.services.subscription_service import get_subscription_service
 from app.auth import get_current_user_id
@@ -35,20 +37,113 @@ async def run_ai_analysis(
             detail="AI features require Pro subscription. Upgrade at /pricing"
         )
 
-    # Get original analysis from store
+    # Get original analysis from store or database
     from app.routes.analyze import analysis_status_store
 
-    if analysis_id not in analysis_status_store:
-        raise HTTPException(404, "Analysis not found")
+    analysis = None
+    deals = []
+    violations = []
 
-    analysis = analysis_status_store[analysis_id]
+    if analysis_id in analysis_status_store:
+        # Found in memory
+        print(f"✅ Found analysis {analysis_id} in memory")
+        analysis = analysis_status_store[analysis_id]
 
-    # Verify ownership
-    if analysis.get("user_id") != user_id:
-        raise HTTPException(403, "Not authorized")
+        # Verify ownership
+        if analysis.get("user_id") != user_id:
+            raise HTTPException(403, "Not authorized")
 
-    if analysis["status"] != "completed":
-        raise HTTPException(400, "Analysis must be completed first")
+        if analysis["status"] != "completed":
+            raise HTTPException(400, "Analysis must be completed first")
+
+        # Extract deals and violations
+        # File uploads store data in analysis['result']
+        # CRM scans store data directly in analysis
+
+        result = analysis.get("result", {})
+
+        # Try to get from result first (file uploads)
+        deals = result.get("deals", [])
+        violations = result.get("violations", [])
+
+        # If not found in result, check directly in analysis (CRM scans)
+        if not deals and "deals_summary" in analysis:
+            print(f"  - Found CRM scan format (deals_summary in root)")
+            deals_summary = analysis.get("deals_summary", [])
+            violations = analysis.get("violations", [])
+
+            # Reconstruct deals from deals_summary
+            deals = [{
+                "id": deal["deal_id"],
+                "name": deal["deal_name"],
+                "account": deal.get("account_name"),
+                "amount": deal.get("amount"),
+                "stage": deal.get("stage"),
+                "close_date": deal.get("close_date"),
+            } for deal in deals_summary]
+
+        # Also try result.deals_summary (some CRM scans might store it there)
+        elif not deals and "deals_summary" in result:
+            print(f"  - Found CRM scan format (deals_summary in result)")
+            deals_summary = result.get("deals_summary", [])
+
+            # Reconstruct deals from deals_summary
+            deals = [{
+                "id": deal["deal_id"],
+                "name": deal["deal_name"],
+                "account": deal.get("account_name"),
+                "amount": deal.get("amount"),
+                "stage": deal.get("stage"),
+                "close_date": deal.get("close_date"),
+            } for deal in deals_summary]
+
+    else:
+        # Not in memory - try fetching from database (ReviewRun)
+        print(f"⚠️  Analysis {analysis_id} not in memory, checking database...")
+
+        prisma = Prisma()
+        await prisma.connect()
+
+        try:
+            # Check if this is a stored ReviewRun
+            review_run = await prisma.reviewrun.find_first(
+                where={"analysisId": analysis_id},
+                include={
+                    "scheduledReview": {
+                        "include": {"user": True}
+                    }
+                }
+            )
+
+            if not review_run:
+                review_run = await prisma.reviewrun.find_unique(
+                    where={"id": analysis_id},
+                    include={
+                        "scheduledReview": {
+                            "include": {"user": True}
+                        }
+                    }
+                )
+
+            if not review_run:
+                raise HTTPException(404, "Analysis not found")
+
+            # Verify ownership
+            if review_run.scheduledReview.user.clerkId != user_id:
+                raise HTTPException(403, "Not authorized")
+
+            # For ReviewRuns, we don't have detailed deal data stored
+            # We'll need to re-fetch from CRM
+            print(f"⚠️  Analysis is a ReviewRun - detailed deal data not available")
+            print(f"   AI analysis requires re-scanning from CRM")
+
+            raise HTTPException(
+                400,
+                "AI analysis not available for this scan. Please run a new scan to generate AI insights."
+            )
+
+        finally:
+            await prisma.disconnect()
 
     # Check if AI analysis already exists
     if analysis_id in ai_analysis_store:
@@ -58,21 +153,24 @@ async def run_ai_analysis(
             "ai_analysis_id": analysis_id
         }
 
-    # Get deals and violations from the result
-    result = analysis.get("result", {})
-    deals = result.get("deals", [])
-    violations = result.get("violations", [])
-
     print(f"🔍 AI Analysis Debug:")
     print(f"  - Analysis ID: {analysis_id}")
-    print(f"  - Analysis keys: {list(analysis.keys())}")
-    print(f"  - Result keys: {list(result.keys()) if result else 'No result'}")
     print(f"  - Number of deals: {len(deals)}")
     print(f"  - Number of violations: {len(violations)}")
     if deals:
         print(f"  - First deal keys: {list(deals[0].keys())}")
         print(f"  - First deal sample: {dict(list(deals[0].items())[:3])}")
         print(f"  - First deal name field: {deals[0].get('name', 'N/A')}")
+    else:
+        print(f"  ⚠️  WARNING: No deals found in analysis!")
+        print(f"  - This will result in 0 deals analyzed")
+
+    # If no deals, return early with error
+    if not deals:
+        raise HTTPException(
+            400,
+            "No deals found in analysis. Cannot generate AI insights for empty dataset."
+        )
 
     # Group violations by deal
     violations_by_deal: Dict[str, List[Dict]] = {}
