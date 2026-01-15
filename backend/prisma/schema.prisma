@@ -139,6 +139,15 @@ model Deal {
   // Custom fields (stored as JSON)
   customFields      Json?
 
+  // Win/Loss tracking
+  dealStatus        String?      @default("open")  // "open", "won", "lost", "abandoned"
+  actualCloseDate   DateTime?    // When deal actually closed (vs projected closeDate)
+  wonReason         String?      // Why we won (if won)
+  lostReason        String?      // Why we lost (if lost)
+  dealType          String?      // "new_business", "expansion", "renewal", "upsell"
+  daysToClose       Int?         // Calculated: actualCloseDate - createdDate
+  salesCycleLength  Int?         // Calculated: days from createdDate to actualCloseDate
+
   // Analysis results
   hasIssues         Boolean   @default(false)
   criticalCount     Int       @default(0)

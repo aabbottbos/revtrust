@@ -8,7 +8,7 @@ import traceback
 import logging
 from dotenv import load_dotenv
 
-from app.routes import analyze, health, ai_analysis, ai_chat, ai_email, stripe_routes, webhooks, feedback, analytics, admin, crm_oauth, scheduled_reviews, output_templates, organizations, forecast, crm_write, email_test, user, rules, admin_prompts, admin_users, dashboard, scan, settings, saved_scans
+from app.routes import analyze, health, ai_analysis, ai_chat, ai_email, stripe_routes, webhooks, feedback, analytics, admin, crm_oauth, scheduled_reviews, output_templates, organizations, forecast, crm_write, email_test, user, rules, admin_prompts, admin_users, dashboard, scan, settings, saved_scans, winloss_patterns
 from app.services.scheduler_service import get_scheduler_service
 
 load_dotenv()
@@ -139,3 +139,4 @@ app.include_router(dashboard.router, tags=["Dashboard"])
 app.include_router(scan.router, tags=["Scan"])
 app.include_router(settings.router, tags=["Settings"])
 app.include_router(saved_scans.router, tags=["Saved Scans"])
+app.include_router(winloss_patterns.router, tags=["Win/Loss Patterns"])

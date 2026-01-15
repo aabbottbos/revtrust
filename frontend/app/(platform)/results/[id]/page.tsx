@@ -23,6 +23,7 @@ import {
   DealsView,
   IssuesView,
   AIInsightsSection,
+  WinLossPatternsSection,
 } from "@/components/results"
 import type { DealsFilter, IssuesFilter } from "@/components/results"
 import { AICoachChat } from "@/components/ai/AICoachChat"
@@ -486,6 +487,14 @@ export default function ResultsPage() {
         {/* AI Insights Section */}
         <div className="mb-8">
           <AIInsightsSection
+            analysisId={analysisId}
+            hasAIAccess={hasAIAccess}
+          />
+        </div>
+
+        {/* Win/Loss Patterns Section */}
+        <div className="mb-8">
+          <WinLossPatternsSection
             analysisId={analysisId}
             hasAIAccess={hasAIAccess}
           />

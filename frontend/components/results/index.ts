@@ -1,6 +1,7 @@
 export { DealsView } from "./DealsView"
 export { IssuesView } from "./IssuesView"
 export { AIInsightsSection } from "./AIInsightsSection"
+export { WinLossPatternsSection } from "./WinLossPatternsSection"
 export { BusinessRulesSection } from "./BusinessRulesSection"
 export type { DealsFilter } from "./DealsView"
 export type { IssuesFilter } from "./IssuesView"
