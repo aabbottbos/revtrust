@@ -42,7 +42,7 @@ export function usePostHog() {
 
     isFeatureEnabled: (flag: string): boolean => {
       if (isLoaded) {
-        return posthog.isFeatureEnabled(flag)
+        return posthog.isFeatureEnabled(flag) ?? false
       }
       return false
     },

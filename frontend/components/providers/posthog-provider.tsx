@@ -1,11 +1,11 @@
 "use client"
 
-import { useEffect } from "react"
+import { Suspense, useEffect } from "react"
 import { usePathname, useSearchParams } from "next/navigation"
 import { useUser } from "@clerk/nextjs"
 import posthog from "posthog-js"
 
-export function PostHogProvider({ children }: { children: React.ReactNode }) {
+function PostHogTracking() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const { user, isLoaded } = useUser()
@@ -76,5 +76,16 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isLoaded, user])
 
-  return <>{children}</>
+  return null
+}
+
+export function PostHogProvider({ children }: { children: React.ReactNode }) {
+  return (
+    <>
+      <Suspense fallback={null}>
+        <PostHogTracking />
+      </Suspense>
+      {children}
+    </>
+  )
 }
