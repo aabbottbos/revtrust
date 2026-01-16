@@ -187,9 +187,11 @@ export default function PricingPage() {
                 Dedicated support
               </li>
             </ul>
-            <Button className="w-full" variant="outline">
-              Contact Sales
-            </Button>
+            <Link href="/contact-sales">
+              <Button className="w-full" variant="outline">
+                Contact Sales
+              </Button>
+            </Link>
           </Card>
         </div>
       </div>
