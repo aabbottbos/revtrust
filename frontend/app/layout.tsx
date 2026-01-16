@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { OfflineDetector } from "@/components/offline-detector";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { PostHogProvider } from "@/components/providers/posthog-provider";
 import "./globals.css";
 
 // Inter for headings (page titles, section headers, navigation)
@@ -62,12 +63,14 @@ export default function RootLayout({
     <ClerkProvider>
       <html lang="en">
         <body className={`${inter.variable} ${switzer.variable} ${interTight.variable}`}>
-          <OfflineDetector />
-          <ErrorBoundary>
-            {children}
-          </ErrorBoundary>
-          <Toaster />
-          <SpeedInsights />
+          <PostHogProvider>
+            <OfflineDetector />
+            <ErrorBoundary>
+              {children}
+            </ErrorBoundary>
+            <Toaster />
+            <SpeedInsights />
+          </PostHogProvider>
         </body>
       </html>
     </ClerkProvider>

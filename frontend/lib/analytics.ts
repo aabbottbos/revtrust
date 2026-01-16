@@ -1,7 +1,9 @@
 /**
- * Simple event tracking
- * Start with console logs, upgrade to PostHog/Mixpanel later
+ * Analytics tracking with PostHog
+ * Tracks events, user properties, and sends to backend for storage
  */
+
+import posthog from "posthog-js"
 
 type EventName =
   | "csv_uploaded"
@@ -15,9 +17,14 @@ type EventName =
   | "feedback_submitted"
   | "page_viewed"
   | "analysis_saved"
+  | "crm_connected"
+  | "deal_reviewed"
+  | "rule_modified"
+  | "win_loss_viewed"
+  | "feature_flag_enabled"
 
 interface EventProperties {
-  [key: string]: string | number | boolean | undefined
+  [key: string]: string | number | boolean | undefined | null
 }
 
 export function trackEvent(
@@ -29,12 +36,12 @@ export function trackEvent(
     console.log("📊 Event:", event, properties)
   }
 
-  // Send to analytics service (PostHog example)
-  if (typeof window !== "undefined" && (window as any).posthog) {
-    (window as any).posthog.capture(event, properties)
+  // Send to PostHog
+  if (typeof window !== "undefined" && posthog.__loaded) {
+    posthog.capture(event, properties)
   }
 
-  // Send to backend for logging
+  // Send to backend for logging (optional - for data warehouse)
   if (typeof window !== "undefined") {
     fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/analytics/event`, {
       method: "POST",
@@ -53,6 +60,18 @@ export function trackEvent(
       }
     })
   }
+}
+
+// Set user properties (separate from identification)
+export function setUserProperties(properties: Record<string, any>) {
+  if (typeof window !== "undefined" && posthog.__loaded) {
+    posthog.setPersonProperties(properties)
+  }
+}
+
+// Track feature flag usage
+export function trackFeatureFlag(flagName: string, enabled: boolean) {
+  trackEvent("feature_flag_enabled", { flagName, enabled })
 }
 
 // Convenience functions for common events
@@ -88,5 +107,17 @@ export const analytics = {
     trackEvent("page_viewed", { page }),
 
   analysisSaved: (analysisId: string) =>
-    trackEvent("analysis_saved", { analysisId })
+    trackEvent("analysis_saved", { analysisId }),
+
+  crmConnected: (provider: string, dealCount: number) =>
+    trackEvent("crm_connected", { provider, dealCount }),
+
+  dealReviewed: (dealId: string, issueCount: number, action: string) =>
+    trackEvent("deal_reviewed", { dealId, issueCount, action }),
+
+  ruleModified: (ruleId: string, action: string) =>
+    trackEvent("rule_modified", { ruleId, action }),
+
+  winLossViewed: (analysisId: string) =>
+    trackEvent("win_loss_viewed", { analysisId }),
 }
