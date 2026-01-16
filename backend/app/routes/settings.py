@@ -100,18 +100,20 @@ async def update_delivery_settings(
         # Upsert settings
         settings = await prisma.usersettings.upsert(
             where={"userId": user.id},
-            create={
-                "userId": user.id,
-                "defaultEmailRecipients": request.defaultEmailRecipients,
-                "slackWebhookUrl": request.slackWebhookUrl,
-                "slackEnabled": request.slackEnabled,
-                "emailEnabled": request.emailEnabled
-            },
-            update={
-                "defaultEmailRecipients": request.defaultEmailRecipients,
-                "slackWebhookUrl": request.slackWebhookUrl,
-                "slackEnabled": request.slackEnabled,
-                "emailEnabled": request.emailEnabled
+            data={
+                "create": {
+                    "userId": user.id,
+                    "defaultEmailRecipients": request.defaultEmailRecipients,
+                    "slackWebhookUrl": request.slackWebhookUrl,
+                    "slackEnabled": request.slackEnabled,
+                    "emailEnabled": request.emailEnabled
+                },
+                "update": {
+                    "defaultEmailRecipients": request.defaultEmailRecipients,
+                    "slackWebhookUrl": request.slackWebhookUrl,
+                    "slackEnabled": request.slackEnabled,
+                    "emailEnabled": request.emailEnabled
+                }
             }
         )
 
