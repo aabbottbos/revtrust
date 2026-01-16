@@ -48,6 +48,9 @@ const interTight = Inter_Tight({
 export const metadata: Metadata = {
   title: "RevTrust - Sales Pipeline Hygiene",
   description: "Turn messy pipeline data into accurate forecasts",
+  icons: {
+    icon: "/favicon.png",
+  },
 };
 
 export default function RootLayout({
