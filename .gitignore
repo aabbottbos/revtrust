@@ -44,6 +44,8 @@ venv/
 
 # Logs
 *.log
+logs/
 
 # HubSpot config file
 hubspot.config.yml
+
