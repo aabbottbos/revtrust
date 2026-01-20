@@ -27,33 +27,39 @@ export default function ContactSalesPage() {
     e.preventDefault()
     setSubmitting(true)
 
-    // TODO: Integrate with your backend API to send the form data
-    // Example:
-    // await fetch('/api/contact-sales', {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify(formData)
-    // })
-
-    // Simulate form submission
-    await new Promise(resolve => setTimeout(resolve, 1000))
-
-    setSubmitted(true)
-    setSubmitting(false)
-
-    // Reset form after 3 seconds
-    setTimeout(() => {
-      setSubmitted(false)
-      setFormData({
-        name: "",
-        email: "",
-        phone: "",
-        company: "",
-        role: "",
-        teamSize: "",
-        message: ""
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/contact/sales`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
       })
-    }, 3000)
+
+      if (response.ok) {
+        setSubmitted(true)
+
+        // Reset form after 5 seconds
+        setTimeout(() => {
+          setSubmitted(false)
+          setFormData({
+            name: "",
+            email: "",
+            phone: "",
+            company: "",
+            role: "",
+            teamSize: "",
+            message: ""
+          })
+        }, 5000)
+      } else {
+        const error = await response.json()
+        alert(error.detail || "Failed to submit form. Please try emailing sales@revtrust.net directly.")
+      }
+    } catch (error) {
+      console.error("Error submitting form:", error)
+      alert("Failed to submit form. Please try emailing sales@revtrust.net directly.")
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -388,10 +394,10 @@ export default function ContactSalesPage() {
                 <p className="text-slate-700 text-sm">
                   Our sales team typically responds within 24 hours on business days. For urgent inquiries, email us directly at{" "}
                   <a
-                    href="mailto:sales@revtrust.com"
+                    href="mailto:sales@revtrust.net"
                     className="text-blue-600 hover:text-blue-700 font-medium"
                   >
-                    sales@revtrust.com
+                    sales@revtrust.net
                   </a>
                 </p>
               </Card>

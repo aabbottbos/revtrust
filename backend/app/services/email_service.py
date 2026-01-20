@@ -213,6 +213,139 @@ async def send_ai_analysis_complete_email(
         return False
 
 
+async def send_contact_sales_email(
+    name: str,
+    email: str,
+    phone: str,
+    company: str,
+    role: str,
+    team_size: str,
+    message: str
+):
+    """Send contact sales form submission to sales@revtrust.net"""
+
+    if not RESEND_API_KEY:
+        print("⚠️  RESEND_API_KEY not configured, skipping email")
+        return False
+
+    print(f"📧 Attempting to send contact sales email for {company}")
+    print(f"📧 FROM_EMAIL: {FROM_EMAIL}")
+    print(f"📧 TO: sales@revtrust.net")
+    print(f"📧 REPLY_TO: {email}")
+
+    subject = f"New Enterprise Inquiry: {company}"
+
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f8fafc;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+          <div style="text-align: center; margin-bottom: 40px;">
+            <h1 style="color: #2563EB; font-size: 28px; margin: 0;">RevTrust</h1>
+            <p style="color: #64748b; margin: 8px 0 0 0;">New Enterprise Inquiry</p>
+          </div>
+
+          <div style="background: white; border-radius: 12px; padding: 32px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);">
+            <h2 style="color: #0f172a; font-size: 24px; margin: 0 0 24px 0;">
+              New Contact Sales Form Submission
+            </h2>
+
+            <div style="margin-bottom: 24px;">
+              <div style="margin-bottom: 16px;">
+                <div style="color: #64748b; font-size: 14px; margin-bottom: 4px; font-weight: 600;">Contact Information</div>
+                <div style="background: #f8fafc; border-radius: 8px; padding: 16px;">
+                  <p style="margin: 0 0 8px 0; color: #0f172a;"><strong>Name:</strong> {name}</p>
+                  <p style="margin: 0 0 8px 0; color: #0f172a;"><strong>Email:</strong> <a href="mailto:{email}" style="color: #2563EB;">{email}</a></p>
+                  <p style="margin: 0; color: #0f172a;"><strong>Phone:</strong> {phone if phone else "Not provided"}</p>
+                </div>
+              </div>
+
+              <div style="margin-bottom: 16px;">
+                <div style="color: #64748b; font-size: 14px; margin-bottom: 4px; font-weight: 600;">Company Information</div>
+                <div style="background: #f8fafc; border-radius: 8px; padding: 16px;">
+                  <p style="margin: 0 0 8px 0; color: #0f172a;"><strong>Company:</strong> {company}</p>
+                  <p style="margin: 0 0 8px 0; color: #0f172a;"><strong>Role:</strong> {role}</p>
+                  <p style="margin: 0; color: #0f172a;"><strong>Team Size:</strong> {team_size}</p>
+                </div>
+              </div>
+
+              <div>
+                <div style="color: #64748b; font-size: 14px; margin-bottom: 4px; font-weight: 600;">Message</div>
+                <div style="background: #f8fafc; border-radius: 8px; padding: 16px;">
+                  <p style="margin: 0; color: #0f172a; white-space: pre-wrap;">{message}</p>
+                </div>
+              </div>
+            </div>
+
+            <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px;">
+              <p style="color: #1e40af; font-size: 14px; margin: 0;">
+                <strong>Quick Action:</strong> Reply to this email to respond directly to {name}
+              </p>
+            </div>
+          </div>
+
+          <div style="text-align: center; margin-top: 32px; color: #94a3b8; font-size: 14px;">
+            <p style="margin: 0;">© 2024 RevTrust. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+    </html>
+    """
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "https://api.resend.com/emails",
+                headers={
+                    "Authorization": f"Bearer {RESEND_API_KEY}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "from": FROM_EMAIL,
+                    "to": ["sales@revtrust.net"],
+                    "reply_to": [email],
+                    "subject": subject,
+                    "html": html
+                },
+                timeout=10.0
+            )
+
+            if response.status_code == 200:
+                print(f"✓ Contact sales email sent for {company}")
+                return True
+            else:
+                print(f"❌ Email error: {response.status_code}")
+                print(f"❌ Response: {response.text}")
+                print(f"❌ Headers: {dict(response.headers)}")
+
+                # Parse and log specific error details
+                try:
+                    error_data = response.json()
+                    print(f"❌ Error details: {error_data}")
+                except:
+                    pass
+
+                # Common issue hints
+                if response.status_code == 422:
+                    print("💡 Hint: FROM_EMAIL domain may not be verified in Resend")
+                elif response.status_code == 401:
+                    print("💡 Hint: RESEND_API_KEY may be invalid")
+                elif response.status_code == 403:
+                    print("💡 Hint: Check domain verification in Resend dashboard")
+
+                return False
+
+    except Exception as e:
+        print(f"❌ Email exception: {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
 async def send_invitation_email(
     to_email: str,
     org_name: str,
