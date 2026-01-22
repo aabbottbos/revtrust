@@ -34,6 +34,26 @@ class RevenueTargetRequest(BaseModel):
     set_by: str = "self"  # "self", "manager", "admin"
 
 
+class TerritoryUpdateRequest(BaseModel):
+    territory: Optional[str] = None
+    industry: Optional[str] = None
+    market_maturity: Optional[str] = None
+    competition: Optional[str] = None
+
+
+class ProductRequest(BaseModel):
+    name: str
+    typical_cycle: Optional[str] = None
+    price_range: Optional[str] = None
+
+
+class PreferencesUpdateRequest(BaseModel):
+    coaching_style: Optional[str] = None
+    notification_frequency: Optional[str] = None
+    risk_tolerance: Optional[str] = None
+    communication_tone: Optional[str] = None
+
+
 @router.get("/profile")
 async def get_profile(
     clerk_user_id: str = Depends(require_auth),
@@ -367,6 +387,400 @@ async def delete_revenue_target(
         raise
     except Exception as e:
         logger.error(f"Error deleting revenue target {target_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        await db.disconnect()
+
+
+# ==================== TERRITORY ENDPOINTS ====================
+
+@router.get("/territory")
+async def get_territory(
+    clerk_user_id: str = Depends(require_auth),
+    authorization: str = Header(None)
+):
+    """Get user territory settings"""
+    db = Prisma()
+    await db.connect()
+
+    try:
+        user = await db.user.find_unique(where={"clerkId": clerk_user_id})
+
+        # Auto-create user if they don't exist
+        if not user:
+            logger.info(f"User not found in GET territory, creating new user: {clerk_user_id}")
+
+            email = await get_current_user_email(authorization)
+            if not email:
+                email = f"{clerk_user_id}@temp.revtrust.net"
+                logger.warning(f"Could not extract email from token, using placeholder: {email}")
+
+            user = await db.user.create(
+                data={
+                    "clerkId": clerk_user_id,
+                    "email": email,
+                    "subscriptionTier": "free",
+                    "subscriptionStatus": "active"
+                }
+            )
+            logger.info(f"Created new user: {user.id} with email: {email}")
+
+        return {
+            "territory": user.territory,
+            "industry": user.industry,
+            "marketMaturity": user.marketMaturity,
+            "competition": user.competition,
+        }
+    except Exception as e:
+        logger.error(f"Error fetching territory for user {clerk_user_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        await db.disconnect()
+
+
+@router.put("/territory")
+async def update_territory(
+    request: TerritoryUpdateRequest,
+    clerk_user_id: str = Depends(require_auth),
+    authorization: str = Header(None)
+):
+    """Update user territory settings"""
+    logger.info(f"Updating territory for user {clerk_user_id}")
+
+    db = Prisma()
+    await db.connect()
+
+    try:
+        user = await db.user.find_unique(where={"clerkId": clerk_user_id})
+
+        # Auto-create user if they don't exist
+        if not user:
+            logger.info(f"User not found in database, creating new user: {clerk_user_id}")
+
+            email = await get_current_user_email(authorization)
+            if not email:
+                email = f"{clerk_user_id}@temp.revtrust.net"
+                logger.warning(f"Could not extract email from token, using placeholder: {email}")
+
+            user = await db.user.create(
+                data={
+                    "clerkId": clerk_user_id,
+                    "email": email,
+                    "subscriptionTier": "free",
+                    "subscriptionStatus": "active"
+                }
+            )
+            logger.info(f"Created new user: {user.id} with email: {email}")
+
+        # Build update data
+        update_data = {}
+
+        if request.territory is not None:
+            update_data["territory"] = request.territory
+        if request.industry is not None:
+            update_data["industry"] = request.industry
+        if request.market_maturity is not None:
+            update_data["marketMaturity"] = request.market_maturity
+        if request.competition is not None:
+            update_data["competition"] = request.competition
+
+        # Update user
+        await db.user.update(
+            where={"id": user.id},
+            data=update_data
+        )
+
+        updated_user = await db.user.find_unique(where={"id": user.id})
+
+        logger.info(f"Territory updated for user {clerk_user_id}")
+
+        return {
+            "success": True,
+            "message": "Territory settings updated successfully",
+            "territory": {
+                "territory": updated_user.territory if updated_user else None,
+                "industry": updated_user.industry if updated_user else None,
+                "marketMaturity": updated_user.marketMaturity if updated_user else None,
+                "competition": updated_user.competition if updated_user else None,
+            }
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating territory for user {clerk_user_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        await db.disconnect()
+
+
+# ==================== PRODUCTS ENDPOINTS ====================
+
+@router.get("/products")
+async def get_products(
+    clerk_user_id: str = Depends(require_auth),
+    authorization: str = Header(None)
+):
+    """Get all products for the user"""
+    db = Prisma()
+    await db.connect()
+
+    try:
+        user = await db.user.find_unique(where={"clerkId": clerk_user_id})
+
+        # Auto-create user if they don't exist
+        if not user:
+            logger.info(f"User not found in GET products, creating new user: {clerk_user_id}")
+
+            email = await get_current_user_email(authorization)
+            if not email:
+                email = f"{clerk_user_id}@temp.revtrust.net"
+                logger.warning(f"Could not extract email from token, using placeholder: {email}")
+
+            user = await db.user.create(
+                data={
+                    "clerkId": clerk_user_id,
+                    "email": email,
+                    "subscriptionTier": "free",
+                    "subscriptionStatus": "active"
+                }
+            )
+            logger.info(f"Created new user: {user.id} with email: {email}")
+
+        products = await db.product.find_many(
+            where={"userId": user.id},
+            order=[{"createdAt": "desc"}]
+        )
+
+        return {
+            "products": [
+                {
+                    "id": p.id,
+                    "name": p.name,
+                    "typicalCycle": p.typicalCycle,
+                    "priceRange": p.priceRange,
+                    "createdAt": p.createdAt.isoformat(),
+                    "updatedAt": p.updatedAt.isoformat(),
+                }
+                for p in products
+            ]
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching products for user {clerk_user_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        await db.disconnect()
+
+
+@router.post("/product")
+async def create_product(
+    request: ProductRequest,
+    clerk_user_id: str = Depends(require_auth)
+):
+    """Create a new product"""
+    db = Prisma()
+    await db.connect()
+
+    try:
+        user = await db.user.find_unique(where={"clerkId": clerk_user_id})
+
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # Validate name
+        if not request.name.strip():
+            raise HTTPException(status_code=400, detail="Product name is required")
+
+        # Create product
+        product = await db.product.create(
+            data={
+                "userId": user.id,
+                "name": request.name,
+                "typicalCycle": request.typical_cycle,
+                "priceRange": request.price_range,
+            }
+        )
+
+        logger.info(f"Created product for user {clerk_user_id}: {request.name}")
+
+        return {
+            "success": True,
+            "message": "Product created successfully",
+            "product": {
+                "id": product.id,
+                "name": product.name,
+                "typicalCycle": product.typicalCycle,
+                "priceRange": product.priceRange,
+            }
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating product for user {clerk_user_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        await db.disconnect()
+
+
+@router.delete("/product/{product_id}")
+async def delete_product(
+    product_id: str,
+    clerk_user_id: str = Depends(require_auth)
+):
+    """Delete a product"""
+    db = Prisma()
+    await db.connect()
+
+    try:
+        user = await db.user.find_unique(where={"clerkId": clerk_user_id})
+
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # Verify product belongs to user
+        product = await db.product.find_unique(where={"id": product_id})
+
+        if not product:
+            raise HTTPException(status_code=404, detail="Product not found")
+
+        if product.userId != user.id:
+            raise HTTPException(status_code=403, detail="Not authorized to delete this product")
+
+        # Delete product
+        await db.product.delete(where={"id": product_id})
+
+        logger.info(f"Deleted product {product_id} for user {clerk_user_id}")
+
+        return {
+            "success": True,
+            "message": "Product deleted successfully"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting product {product_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        await db.disconnect()
+
+
+# ==================== PREFERENCES ENDPOINTS ====================
+
+@router.get("/preferences")
+async def get_preferences(
+    clerk_user_id: str = Depends(require_auth),
+    authorization: str = Header(None)
+):
+    """Get user preferences"""
+    db = Prisma()
+    await db.connect()
+
+    try:
+        user = await db.user.find_unique(where={"clerkId": clerk_user_id})
+
+        # Auto-create user if they don't exist
+        if not user:
+            logger.info(f"User not found in GET preferences, creating new user: {clerk_user_id}")
+
+            email = await get_current_user_email(authorization)
+            if not email:
+                email = f"{clerk_user_id}@temp.revtrust.net"
+                logger.warning(f"Could not extract email from token, using placeholder: {email}")
+
+            user = await db.user.create(
+                data={
+                    "clerkId": clerk_user_id,
+                    "email": email,
+                    "subscriptionTier": "free",
+                    "subscriptionStatus": "active"
+                }
+            )
+            logger.info(f"Created new user: {user.id} with email: {email}")
+
+        return {
+            "coachingStyle": user.coachingStyle,
+            "notificationFrequency": user.notificationFrequency,
+            "riskTolerance": user.riskTolerance,
+            "communicationTone": user.communicationTone,
+        }
+    except Exception as e:
+        logger.error(f"Error fetching preferences for user {clerk_user_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        await db.disconnect()
+
+
+@router.put("/preferences")
+async def update_preferences(
+    request: PreferencesUpdateRequest,
+    clerk_user_id: str = Depends(require_auth),
+    authorization: str = Header(None)
+):
+    """Update user preferences"""
+    logger.info(f"Updating preferences for user {clerk_user_id}")
+
+    db = Prisma()
+    await db.connect()
+
+    try:
+        user = await db.user.find_unique(where={"clerkId": clerk_user_id})
+
+        # Auto-create user if they don't exist
+        if not user:
+            logger.info(f"User not found in database, creating new user: {clerk_user_id}")
+
+            email = await get_current_user_email(authorization)
+            if not email:
+                email = f"{clerk_user_id}@temp.revtrust.net"
+                logger.warning(f"Could not extract email from token, using placeholder: {email}")
+
+            user = await db.user.create(
+                data={
+                    "clerkId": clerk_user_id,
+                    "email": email,
+                    "subscriptionTier": "free",
+                    "subscriptionStatus": "active"
+                }
+            )
+            logger.info(f"Created new user: {user.id} with email: {email}")
+
+        # Build update data
+        update_data = {}
+
+        if request.coaching_style is not None:
+            update_data["coachingStyle"] = request.coaching_style
+        if request.notification_frequency is not None:
+            update_data["notificationFrequency"] = request.notification_frequency
+        if request.risk_tolerance is not None:
+            update_data["riskTolerance"] = request.risk_tolerance
+        if request.communication_tone is not None:
+            update_data["communicationTone"] = request.communication_tone
+
+        # Update user
+        await db.user.update(
+            where={"id": user.id},
+            data=update_data
+        )
+
+        updated_user = await db.user.find_unique(where={"id": user.id})
+
+        logger.info(f"Preferences updated for user {clerk_user_id}")
+
+        return {
+            "success": True,
+            "message": "Preferences updated successfully",
+            "preferences": {
+                "coachingStyle": updated_user.coachingStyle if updated_user else None,
+                "notificationFrequency": updated_user.notificationFrequency if updated_user else None,
+                "riskTolerance": updated_user.riskTolerance if updated_user else None,
+                "communicationTone": updated_user.communicationTone if updated_user else None,
+            }
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating preferences for user {clerk_user_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         await db.disconnect()

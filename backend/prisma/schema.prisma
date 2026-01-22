@@ -35,6 +35,18 @@ model User {
   onboardingCompleted   Boolean  @default(false)
   onboardingCompletedAt DateTime?
 
+  // Territory & Market Context (Phase 2)
+  territory             String?  // Geographic territory
+  industry              String?  // Industry/vertical focus
+  marketMaturity        String?  // "greenfield", "growing", "mature", "declining"
+  competition           String?  // Primary competition
+
+  // Coaching Preferences (Phase 3)
+  coachingStyle         String?  // "aggressive", "balanced", "conservative"
+  notificationFrequency String?  // "realtime", "daily", "weekly"
+  riskTolerance         String?  // "show_all", "critical_only", "balanced"
+  communicationTone     String?  // "direct", "professional", "encouraging"
+
   // Subscription info
   subscriptionTier      String  @default("free")  // "free", "pro", "team", "enterprise"
   subscriptionStatus    String  @default("active")  // "active", "cancelled", "expired"
@@ -58,6 +70,7 @@ model User {
   settings         UserSettings?
   savedScans       SavedScan[]
   revenueTargets   RevenueTarget[]
+  products         Product[]
 
   @@map("users")
 }
@@ -861,4 +874,22 @@ model RevenueTarget {
   @@index([userId])
   @@index([year, quarter])
   @@map("revenue_targets")
+}
+
+// Product Catalog (Phase 2: Product Management)
+model Product {
+  id            String   @id @default(uuid())
+  userId        String
+  name          String   // Product/service name
+  typicalCycle  String?  // "<30", "30-60", "60-90", "90-180", "180+"
+  priceRange    String?  // "<10k", "10k-50k", "50k-100k", "100k-500k", "500k+"
+
+  // Timestamps
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("products")
 }

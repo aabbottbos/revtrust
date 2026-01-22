@@ -27,7 +27,10 @@ import {
   AlertCircle,
   Target,
   UserCircle,
-  TrendingUp
+  TrendingUp,
+  MapPin,
+  Package,
+  Settings
 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useAuthenticatedFetch } from "@/hooks/useAuthenticatedFetch"
@@ -151,6 +154,48 @@ function SettingsContent() {
   })
   const [savingTarget, setSavingTarget] = useState(false)
 
+  // Territory state
+  const [territoryData, setTerritoryData] = useState({
+    territory: "",
+    industry: "",
+    marketMaturity: "",
+    competition: "",
+  })
+  const [savedTerritoryData, setSavedTerritoryData] = useState({
+    territory: "",
+    industry: "",
+    marketMaturity: "",
+    competition: "",
+  })
+  const [loadingTerritory, setLoadingTerritory] = useState(true)
+  const [savingTerritory, setSavingTerritory] = useState(false)
+
+  // Products state
+  const [products, setProducts] = useState<any[]>([])
+  const [loadingProducts, setLoadingProducts] = useState(true)
+  const [newProduct, setNewProduct] = useState({
+    name: "",
+    typicalCycle: "",
+    priceRange: "",
+  })
+  const [savingProduct, setSavingProduct] = useState(false)
+
+  // Preferences state
+  const [preferencesData, setPreferencesData] = useState({
+    coachingStyle: "",
+    notificationFrequency: "",
+    riskTolerance: "",
+    communicationTone: "",
+  })
+  const [savedPreferencesData, setSavedPreferencesData] = useState({
+    coachingStyle: "",
+    notificationFrequency: "",
+    riskTolerance: "",
+    communicationTone: "",
+  })
+  const [loadingPreferences, setLoadingPreferences] = useState(true)
+  const [savingPreferences, setSavingPreferences] = useState(false)
+
   const isPaidUser = subscription?.tier && ["pro", "team", "enterprise"].includes(subscription.tier)
 
   // Helper functions for display text
@@ -220,12 +265,72 @@ function SettingsContent() {
     return map[value] || value
   }
 
+  // Territory helper functions
+  const getMarketMaturityDisplayText = (value: string) => {
+    const map: Record<string, string> = {
+      greenfield: "Greenfield",
+      growing: "Growing",
+      mature: "Mature",
+      declining: "Declining"
+    }
+    return map[value] || value
+  }
+
+  // Products helper functions
+  const getProductCycleDisplayText = (value: string) => {
+    return getCycleDisplayText(value) // Reuse cycle display text
+  }
+
+  const getProductPriceDisplayText = (value: string) => {
+    return getDealSizeDisplayText(value) // Reuse deal size display text
+  }
+
+  // Preferences helper functions
+  const getCoachingStyleDisplayText = (value: string) => {
+    const map: Record<string, string> = {
+      aggressive: "Aggressive",
+      balanced: "Balanced",
+      conservative: "Conservative"
+    }
+    return map[value] || value
+  }
+
+  const getNotificationFrequencyDisplayText = (value: string) => {
+    const map: Record<string, string> = {
+      realtime: "Real-time",
+      daily: "Daily Digest",
+      weekly: "Weekly Summary"
+    }
+    return map[value] || value
+  }
+
+  const getRiskToleranceDisplayText = (value: string) => {
+    const map: Record<string, string> = {
+      show_all: "Show Everything",
+      critical_only: "Critical Only",
+      balanced: "Balanced"
+    }
+    return map[value] || value
+  }
+
+  const getCommunicationToneDisplayText = (value: string) => {
+    const map: Record<string, string> = {
+      direct: "Direct/Blunt",
+      professional: "Professional",
+      encouraging: "Encouraging"
+    }
+    return map[value] || value
+  }
+
   useEffect(() => {
     fetchConnections()
     fetchDeliverySettings()
     fetchSubscription()
     fetchProfile()
     fetchRevenueTargets()
+    fetchTerritory()
+    fetchProducts()
+    fetchPreferences()
   }, [])
 
   // Profile Functions
@@ -374,6 +479,189 @@ function SettingsContent() {
       }
     } catch (err) {
       toast.error("Failed to delete revenue target")
+    }
+  }
+
+  // Territory Functions
+  const fetchTerritory = async () => {
+    try {
+      const res = await authenticatedFetch(`${process.env.NEXT_PUBLIC_API_URL}/api/user/territory`)
+
+      if (res.ok) {
+        const data = await res.json()
+
+        const territory = {
+          territory: data.territory || "",
+          industry: data.industry || "",
+          marketMaturity: data.marketMaturity || "",
+          competition: data.competition || "",
+        }
+
+        setTerritoryData({ ...territory })
+        setSavedTerritoryData({ ...territory })
+      }
+    } catch (err) {
+      console.error("Error fetching territory:", err)
+    } finally {
+      setLoadingTerritory(false)
+    }
+  }
+
+  const saveTerritory = async () => {
+    setSavingTerritory(true)
+    try {
+      const res = await authenticatedFetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/user/territory`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            territory: territoryData.territory || null,
+            industry: territoryData.industry || null,
+            market_maturity: territoryData.marketMaturity || null,
+            competition: territoryData.competition || null,
+          })
+        }
+      )
+
+      if (res.ok) {
+        toast.success("Territory settings updated successfully")
+        await fetchTerritory()
+      } else {
+        toast.error("Failed to update territory settings")
+      }
+    } catch (err) {
+      console.error("Error saving territory:", err)
+      toast.error("Failed to update territory settings")
+    } finally {
+      setSavingTerritory(false)
+    }
+  }
+
+  // Products Functions
+  const fetchProducts = async () => {
+    try {
+      const res = await authenticatedFetch(`${process.env.NEXT_PUBLIC_API_URL}/api/user/products`)
+      if (res.ok) {
+        const data = await res.json()
+        setProducts(data.products || [])
+      }
+    } catch (err) {
+      console.error("Error fetching products:", err)
+    } finally {
+      setLoadingProducts(false)
+    }
+  }
+
+  const saveProduct = async () => {
+    if (!newProduct.name.trim()) {
+      toast.error("Please enter a product name")
+      return
+    }
+
+    setSavingProduct(true)
+    try {
+      const res = await authenticatedFetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/user/product`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: newProduct.name,
+            typical_cycle: newProduct.typicalCycle || null,
+            price_range: newProduct.priceRange || null,
+          })
+        }
+      )
+
+      if (res.ok) {
+        toast.success("Product added successfully")
+        setNewProduct({ name: "", typicalCycle: "", priceRange: "" })
+        fetchProducts()
+      } else {
+        const error = await res.json()
+        toast.error(error.detail || "Failed to add product")
+      }
+    } catch (err) {
+      toast.error("Failed to add product")
+    } finally {
+      setSavingProduct(false)
+    }
+  }
+
+  const deleteProduct = async (productId: string) => {
+    if (!confirm("Are you sure you want to delete this product?")) return
+
+    try {
+      const res = await authenticatedFetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/user/product/${productId}`,
+        { method: "DELETE" }
+      )
+
+      if (res.ok) {
+        toast.success("Product deleted")
+        fetchProducts()
+      } else {
+        toast.error("Failed to delete product")
+      }
+    } catch (err) {
+      toast.error("Failed to delete product")
+    }
+  }
+
+  // Preferences Functions
+  const fetchPreferences = async () => {
+    try {
+      const res = await authenticatedFetch(`${process.env.NEXT_PUBLIC_API_URL}/api/user/preferences`)
+
+      if (res.ok) {
+        const data = await res.json()
+
+        const preferences = {
+          coachingStyle: data.coachingStyle || "",
+          notificationFrequency: data.notificationFrequency || "",
+          riskTolerance: data.riskTolerance || "",
+          communicationTone: data.communicationTone || "",
+        }
+
+        setPreferencesData({ ...preferences })
+        setSavedPreferencesData({ ...preferences })
+      }
+    } catch (err) {
+      console.error("Error fetching preferences:", err)
+    } finally {
+      setLoadingPreferences(false)
+    }
+  }
+
+  const savePreferences = async () => {
+    setSavingPreferences(true)
+    try {
+      const res = await authenticatedFetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/user/preferences`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            coaching_style: preferencesData.coachingStyle || null,
+            notification_frequency: preferencesData.notificationFrequency || null,
+            risk_tolerance: preferencesData.riskTolerance || null,
+            communication_tone: preferencesData.communicationTone || null,
+          })
+        }
+      )
+
+      if (res.ok) {
+        toast.success("Preferences updated successfully")
+        await fetchPreferences()
+      } else {
+        toast.error("Failed to update preferences")
+      }
+    } catch (err) {
+      console.error("Error saving preferences:", err)
+      toast.error("Failed to update preferences")
+    } finally {
+      setSavingPreferences(false)
     }
   }
 
@@ -561,7 +849,7 @@ function SettingsContent() {
 
       {/* Tabs */}
       <Tabs defaultValue={defaultTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6 gap-1">
+        <TabsList className="grid w-full grid-cols-9 gap-1">
           <TabsTrigger value="profile" className="flex items-center gap-2">
             <UserCircle className="h-4 w-4" />
             <span className="hidden sm:inline">Profile</span>
@@ -569,6 +857,18 @@ function SettingsContent() {
           <TabsTrigger value="performance" className="flex items-center gap-2">
             <Target className="h-4 w-4" />
             <span className="hidden sm:inline">Performance</span>
+          </TabsTrigger>
+          <TabsTrigger value="territory" className="flex items-center gap-2">
+            <MapPin className="h-4 w-4" />
+            <span className="hidden sm:inline">Territory</span>
+          </TabsTrigger>
+          <TabsTrigger value="products" className="flex items-center gap-2">
+            <Package className="h-4 w-4" />
+            <span className="hidden sm:inline">Products</span>
+          </TabsTrigger>
+          <TabsTrigger value="preferences" className="flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            <span className="hidden sm:inline">Preferences</span>
           </TabsTrigger>
           <TabsTrigger value="crm" className="flex items-center gap-2">
             <Database className="h-4 w-4" />
@@ -905,6 +1205,404 @@ function SettingsContent() {
                     <AlertDescription className="text-blue-800">
                       Revenue targets enable gap-to-quota tracking, deal prioritization, and quota-aware AI coaching on every analysis.
                       {revenueTargets.length === 0 && " Add your first target above to get started!"}
+                    </AlertDescription>
+                  </Alert>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Territory Tab */}
+        <TabsContent value="territory" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MapPin className="h-5 w-5" />
+                Territory & Market Context
+              </CardTitle>
+              <CardDescription>
+                Configure your market, industry, and competitive landscape for regional insights
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loadingTerritory ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="territory">Geographic Territory</Label>
+                      <Input
+                        id="territory"
+                        type="text"
+                        placeholder="e.g., Northeast US, EMEA, Asia-Pacific"
+                        value={territoryData.territory}
+                        onChange={(e) => setTerritoryData({ ...territoryData, territory: e.target.value })}
+                      />
+                      <SavedValueDisplay
+                        value={savedTerritoryData.territory}
+                        onClear={() => setTerritoryData({ ...territoryData, territory: "" })}
+                        getDisplayText={(val) => val}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="industry">Industry/Vertical Focus</Label>
+                      <Input
+                        id="industry"
+                        type="text"
+                        placeholder="e.g., Healthcare, FinTech, Enterprise SaaS"
+                        value={territoryData.industry}
+                        onChange={(e) => setTerritoryData({ ...territoryData, industry: e.target.value })}
+                      />
+                      <SavedValueDisplay
+                        value={savedTerritoryData.industry}
+                        onClear={() => setTerritoryData({ ...territoryData, industry: "" })}
+                        getDisplayText={(val) => val}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="marketMaturity">Market Maturity</Label>
+                      <Select
+                        value={territoryData.marketMaturity}
+                        onValueChange={(value) => setTerritoryData({ ...territoryData, marketMaturity: value })}
+                      >
+                        <SelectTrigger id="marketMaturity">
+                          <SelectValue placeholder="Select market maturity" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="greenfield">Greenfield</SelectItem>
+                          <SelectItem value="growing">Growing</SelectItem>
+                          <SelectItem value="mature">Mature</SelectItem>
+                          <SelectItem value="declining">Declining</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <SavedValueDisplay
+                        value={savedTerritoryData.marketMaturity}
+                        onClear={() => setTerritoryData({ ...territoryData, marketMaturity: "" })}
+                        getDisplayText={getMarketMaturityDisplayText}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="competition">Primary Competition</Label>
+                      <Input
+                        id="competition"
+                        type="text"
+                        placeholder="e.g., Competitor A, Competitor B"
+                        value={territoryData.competition}
+                        onChange={(e) => setTerritoryData({ ...territoryData, competition: e.target.value })}
+                      />
+                      <SavedValueDisplay
+                        value={savedTerritoryData.competition}
+                        onClear={() => setTerritoryData({ ...territoryData, competition: "" })}
+                        getDisplayText={(val) => val}
+                      />
+                    </div>
+                  </div>
+
+                  <Button
+                    onClick={saveTerritory}
+                    disabled={savingTerritory}
+                    className="w-full"
+                  >
+                    {savingTerritory ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-4 h-4 mr-2" />
+                        Save Territory Settings
+                      </>
+                    )}
+                  </Button>
+
+                  <Alert className="bg-blue-50 border-blue-200">
+                    <MapPin className="h-4 w-4 text-blue-600" />
+                    <AlertDescription className="text-blue-800">
+                      Territory context enables regional performance benchmarking, industry-specific coaching, and market-adjusted risk scoring.
+                    </AlertDescription>
+                  </Alert>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Products Tab */}
+        <TabsContent value="products" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Package className="h-5 w-5" />
+                Product Catalog
+              </CardTitle>
+              <CardDescription>
+                Define your products or services to track product-specific performance
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loadingProducts ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Add New Product Form */}
+                  <div className="space-y-4">
+                    <Label className="text-base">Add Product</Label>
+                    <div className="grid md:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="productName">Product Name</Label>
+                        <Input
+                          id="productName"
+                          type="text"
+                          placeholder="e.g., Enterprise Suite"
+                          value={newProduct.name}
+                          onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="productCycle">Typical Sales Cycle</Label>
+                        <Select
+                          value={newProduct.typicalCycle}
+                          onValueChange={(value) => setNewProduct({ ...newProduct, typicalCycle: value })}
+                        >
+                          <SelectTrigger id="productCycle">
+                            <SelectValue placeholder="Select cycle" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="<30">Less than 30 days</SelectItem>
+                            <SelectItem value="30-60">30-60 days</SelectItem>
+                            <SelectItem value="60-90">60-90 days</SelectItem>
+                            <SelectItem value="90-180">90-180 days</SelectItem>
+                            <SelectItem value="180+">180+ days</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="productPrice">Price Range</Label>
+                        <Select
+                          value={newProduct.priceRange}
+                          onValueChange={(value) => setNewProduct({ ...newProduct, priceRange: value })}
+                        >
+                          <SelectTrigger id="productPrice">
+                            <SelectValue placeholder="Select range" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="<10k">Less than $10K</SelectItem>
+                            <SelectItem value="10k-50k">$10K - $50K</SelectItem>
+                            <SelectItem value="50k-100k">$50K - $100K</SelectItem>
+                            <SelectItem value="100k-500k">$100K - $500K</SelectItem>
+                            <SelectItem value="500k+">$500K+</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <Button
+                      onClick={saveProduct}
+                      disabled={savingProduct}
+                      className="w-full"
+                    >
+                      {savingProduct ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-4 h-4 mr-2" />
+                          Add Product
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  {/* Saved Products */}
+                  {products.length > 0 && (
+                    <div className="space-y-2">
+                      {products.map((product) => (
+                        <div key={product.id} className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                          <div className="flex-1">
+                            <span className="font-medium text-blue-900">Current: </span>
+                            <span className="font-bold text-blue-900">{product.name}</span>
+                            {product.typicalCycle && (
+                              <span className="text-sm text-blue-700 ml-2">
+                                ({getProductCycleDisplayText(product.typicalCycle)})
+                              </span>
+                            )}
+                            {product.priceRange && (
+                              <span className="text-sm text-blue-700 ml-1">
+                                - {getProductPriceDisplayText(product.priceRange)}
+                              </span>
+                            )}
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => deleteProduct(product.id)}
+                            className="h-6 w-6 p-0 hover:bg-blue-100"
+                          >
+                            <X className="h-4 w-4 text-blue-600" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <Alert className="bg-blue-50 border-blue-200">
+                    <Package className="h-4 w-4 text-blue-600" />
+                    <AlertDescription className="text-blue-800">
+                      Product catalog enables product-specific win/loss patterns, cross-sell detection, and product mix analysis.
+                      {products.length === 0 && " Add your first product above to get started!"}
+                    </AlertDescription>
+                  </Alert>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Preferences Tab */}
+        <TabsContent value="preferences" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Settings className="h-5 w-5" />
+                Coaching Preferences
+              </CardTitle>
+              <CardDescription>
+                Customize how RevTrust coaches you and delivers insights
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loadingPreferences ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="coachingStyle">Coaching Style</Label>
+                      <Select
+                        value={preferencesData.coachingStyle}
+                        onValueChange={(value) => setPreferencesData({ ...preferencesData, coachingStyle: value })}
+                      >
+                        <SelectTrigger id="coachingStyle">
+                          <SelectValue placeholder="Select coaching style" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="aggressive">Aggressive</SelectItem>
+                          <SelectItem value="balanced">Balanced</SelectItem>
+                          <SelectItem value="conservative">Conservative</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <SavedValueDisplay
+                        value={savedPreferencesData.coachingStyle}
+                        onClear={() => setPreferencesData({ ...preferencesData, coachingStyle: "" })}
+                        getDisplayText={getCoachingStyleDisplayText}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="notificationFrequency">Notification Frequency</Label>
+                      <Select
+                        value={preferencesData.notificationFrequency}
+                        onValueChange={(value) => setPreferencesData({ ...preferencesData, notificationFrequency: value })}
+                      >
+                        <SelectTrigger id="notificationFrequency">
+                          <SelectValue placeholder="Select frequency" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="realtime">Real-time</SelectItem>
+                          <SelectItem value="daily">Daily Digest</SelectItem>
+                          <SelectItem value="weekly">Weekly Summary</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <SavedValueDisplay
+                        value={savedPreferencesData.notificationFrequency}
+                        onClear={() => setPreferencesData({ ...preferencesData, notificationFrequency: "" })}
+                        getDisplayText={getNotificationFrequencyDisplayText}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="riskTolerance">Risk Tolerance</Label>
+                      <Select
+                        value={preferencesData.riskTolerance}
+                        onValueChange={(value) => setPreferencesData({ ...preferencesData, riskTolerance: value })}
+                      >
+                        <SelectTrigger id="riskTolerance">
+                          <SelectValue placeholder="Select tolerance" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="show_all">Show Everything</SelectItem>
+                          <SelectItem value="critical_only">Critical Only</SelectItem>
+                          <SelectItem value="balanced">Balanced</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <SavedValueDisplay
+                        value={savedPreferencesData.riskTolerance}
+                        onClear={() => setPreferencesData({ ...preferencesData, riskTolerance: "" })}
+                        getDisplayText={getRiskToleranceDisplayText}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="communicationTone">Communication Tone</Label>
+                      <Select
+                        value={preferencesData.communicationTone}
+                        onValueChange={(value) => setPreferencesData({ ...preferencesData, communicationTone: value })}
+                      >
+                        <SelectTrigger id="communicationTone">
+                          <SelectValue placeholder="Select tone" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="direct">Direct/Blunt</SelectItem>
+                          <SelectItem value="professional">Professional</SelectItem>
+                          <SelectItem value="encouraging">Encouraging</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <SavedValueDisplay
+                        value={savedPreferencesData.communicationTone}
+                        onClear={() => setPreferencesData({ ...preferencesData, communicationTone: "" })}
+                        getDisplayText={getCommunicationToneDisplayText}
+                      />
+                    </div>
+                  </div>
+
+                  <Button
+                    onClick={savePreferences}
+                    disabled={savingPreferences}
+                    className="w-full"
+                  >
+                    {savingPreferences ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-4 h-4 mr-2" />
+                        Save Preferences
+                      </>
+                    )}
+                  </Button>
+
+                  <Alert className="bg-blue-50 border-blue-200">
+                    <Settings className="h-4 w-4 text-blue-600" />
+                    <AlertDescription className="text-blue-800">
+                      Your preferences personalize coaching style, notification timing, and communication tone to match your work style.
                     </AlertDescription>
                   </Alert>
                 </div>
