@@ -25,6 +25,22 @@ import {
 import { LinkedInShareButton } from "@/components/LinkedInShareButton"
 import { analytics } from "@/lib/analytics"
 import { useAuthenticatedFetch } from "@/hooks/useAuthenticatedFetch"
+import { DealPriorityBadge } from "@/components/DealPriorityBadge"
+import { MethodologyScorecard } from "@/components/MethodologyScorecard"
+
+interface MethodologyItem {
+  element: string
+  present: boolean
+  notes: string
+}
+
+interface MethodologyScore {
+  methodology: string
+  completed: number
+  total: number
+  completion_pct: number
+  items: MethodologyItem[]
+}
 
 interface DealAIResult {
   deal_id: string
@@ -38,6 +54,11 @@ interface DealAIResult {
   action_rationale: string
   executive_summary: string
   confidence: number
+  // Enhanced context-aware metadata
+  priority_score?: number | null
+  quota_impact_pct?: number | null
+  velocity_vs_benchmark?: number | null
+  methodology_score?: MethodologyScore | null
 }
 
 interface PipelineSummary {
@@ -512,6 +533,17 @@ export default function AIResultsPage() {
                           {deal.action_priority.toUpperCase()}
                         </Badge>
                       </div>
+
+                      {/* Context-aware Priority Badge */}
+                      {deal.priority_score !== null && deal.priority_score !== undefined && (
+                        <div className="mb-3">
+                          <DealPriorityBadge
+                            priorityScore={deal.priority_score}
+                            quotaImpactPct={deal.quota_impact_pct}
+                          />
+                        </div>
+                      )}
+
                       <div className="flex items-center gap-4 text-sm text-slate-600">
                         <span className="font-semibold">
                           ${deal.deal_amount.toLocaleString()}
@@ -520,6 +552,18 @@ export default function AIResultsPage() {
                         <span>Risk Score: {deal.risk_score}/100</span>
                         <span>•</span>
                         <span>Confidence: {Math.round(deal.confidence * 100)}%</span>
+                        {deal.velocity_vs_benchmark && (
+                          <>
+                            <span>•</span>
+                            <span className={
+                              deal.velocity_vs_benchmark > 1.5 ? 'text-red-600 font-semibold' :
+                              deal.velocity_vs_benchmark > 1.0 ? 'text-orange-600' :
+                              'text-green-600'
+                            }>
+                              Velocity: {deal.velocity_vs_benchmark.toFixed(1)}x
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -534,7 +578,7 @@ export default function AIResultsPage() {
                     </p>
                   </div>
 
-                  <div className="grid md:grid-cols-2 gap-4">
+                  <div className={`grid gap-4 ${deal.methodology_score ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
                     {/* Risk Factors */}
                     <div>
                       <div className="text-sm font-semibold text-slate-900 mb-3">
@@ -564,6 +608,16 @@ export default function AIResultsPage() {
                         </div>
                       </div>
                     </div>
+
+                    {/* Methodology Scorecard (if available) */}
+                    {deal.methodology_score && (
+                      <div>
+                        <div className="text-sm font-semibold text-slate-900 mb-3">
+                          📋 Methodology Compliance
+                        </div>
+                        <MethodologyScorecard methodologyScore={deal.methodology_score} />
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}

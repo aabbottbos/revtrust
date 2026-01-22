@@ -9,6 +9,7 @@ from typing import Dict, Any, List
 from prisma import Prisma
 from app.services.ai_service import get_ai_service, AIAnalysisResult, safe_amount_to_float
 from app.services.subscription_service import get_subscription_service
+from app.services.context_service import get_user_sales_context, calculate_deal_priority
 from app.auth import get_current_user_id
 
 router = APIRouter(prefix="/api/ai", tags=["AI Analysis"])
@@ -182,12 +183,33 @@ async def run_ai_analysis(
 
     # Run AI analysis
     try:
+        # Fetch user context for enhanced coaching
+        prisma = Prisma()
+        await prisma.connect()
+
+        try:
+            user_context = await get_user_sales_context(user_id, prisma)
+            print(f"  - Fetched user context (has_profile: {user_context.has_profile()}, has_quota: {user_context.has_quota()})")
+        except Exception as e:
+            print(f"  - Error fetching user context: {e}, proceeding without context")
+            user_context = None
+        finally:
+            await prisma.disconnect()
+
         ai_service = get_ai_service()
 
-        # Analyze all deals
+        # Analyze all deals with user context
         print(f"  - Calling AI service with {len(deals)} deals...")
-        results = await ai_service.analyze_pipeline(deals, violations_by_deal)
+        results = await ai_service.analyze_pipeline(deals, violations_by_deal, user_context)
         print(f"  - AI service returned {len(results)} results")
+
+        # Calculate priority scores for each deal
+        deal_priorities = {}
+        if user_context:
+            for deal in deals:
+                deal_id = deal.get('id')
+                priority_data = calculate_deal_priority(deal, user_context)
+                deal_priorities[deal_id] = priority_data
 
         # Generate pipeline summary
         pipeline_summary = await ai_service.generate_pipeline_summary(deals, results)
@@ -196,7 +218,7 @@ async def run_ai_analysis(
         avg_risk_score = sum(r.risk_score for r in results) / len(results) if results else 0
         critical_actions = sum(1 for r in results if r.action_priority == 'critical')
 
-        # Store results with enhanced data
+        # Store results with enhanced data and context-aware metadata
         ai_analysis_store[analysis_id] = {
             "analysis_id": analysis_id,
             "user_id": user_id,
@@ -222,7 +244,12 @@ async def run_ai_analysis(
                     "action_priority": r.action_priority,
                     "action_rationale": r.action_rationale,
                     "executive_summary": r.executive_summary,
-                    "confidence": r.confidence
+                    "confidence": r.confidence,
+                    # Enhanced metadata
+                    "priority_score": deal_priorities.get(r.deal_id, {}).get('priority_score') if deal_priorities else None,
+                    "quota_impact_pct": deal_priorities.get(r.deal_id, {}).get('quota_impact_pct') if deal_priorities else None,
+                    "velocity_vs_benchmark": deal_priorities.get(r.deal_id, {}).get('velocity_ratio') if deal_priorities else None,
+                    "methodology_score": r.methodology_score
                 }
                 for r in results
             ]

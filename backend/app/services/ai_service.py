@@ -9,7 +9,7 @@ import json
 import re
 from typing import List, Dict, Optional, Any
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import anthropic
 
 
@@ -46,6 +46,12 @@ class AIAnalysisResult:
     executive_summary: str
     confidence: float  # 0-1
 
+    # Enhanced context-aware metadata
+    priority_score: Optional[float] = None  # 0-100 calculated priority
+    quota_impact_pct: Optional[float] = None  # % of quota gap this deal represents
+    velocity_vs_benchmark: Optional[float] = None  # Deal velocity ratio vs typical
+    methodology_score: Optional[Dict[str, Any]] = None  # Methodology checklist completion
+
 
 class AIProvider(ABC):
     """Abstract base class for AI providers"""
@@ -80,12 +86,105 @@ class ClaudeProvider(AIProvider):
         self.model = os.getenv("AI_MODEL", "claude-sonnet-4-20250514")
         self.client = anthropic.Anthropic(api_key=self.api_key)
 
+    def _get_methodology_guidance(self, user_context: Any) -> str:
+        """Generate methodology-specific guidance for the prompt"""
+        if not user_context or not user_context.sales_methodology:
+            return ""
+
+        methodology = user_context.sales_methodology.lower()
+
+        guidance_map = {
+            'meddic': """
+   - MEDDIC Process: Evaluate if deal has Metrics, Economic Buyer, Decision Criteria, Decision Process, Identify Pain, and Champion
+   - Flag missing MEDDIC elements as risk factors""",
+            'bant': """
+   - BANT Qualification: Check Budget, Authority, Need, and Timeline are established
+   - Flag missing BANT elements as risk factors""",
+            'sandler': """
+   - Sandler Process: Evaluate Pain identification, Budget confirmation, Decision process, and Relationship strength
+   - Flag gaps in Sandler methodology""",
+            'solution_selling': """
+   - Solution Selling: Assess Situation understanding, Problem identification, Implications, and Need-Payoff
+   - Flag missing elements in solution selling process""",
+            'challenger': """
+   - Challenger Sale: Check for Warmer, Reframe, Rational Drowning, Solution, and Action steps
+   - Evaluate if rep is challenging customer thinking effectively"""
+        }
+
+        return guidance_map.get(methodology, "")
+
+    def _get_methodology_json_format(self, user_context: Any) -> str:
+        """Add methodology checklist to JSON format if methodology is set"""
+        if not user_context or not user_context.sales_methodology or user_context.sales_methodology == 'none':
+            return ""
+
+        methodology = user_context.sales_methodology.lower()
+
+        format_map = {
+            'meddic': """,
+  "methodology_checklist": {{
+    "methodology": "MEDDIC",
+    "items": [
+      {{"element": "Metrics", "present": <true|false>, "notes": "Brief observation"}},
+      {{"element": "Economic Buyer", "present": <true|false>, "notes": "Brief observation"}},
+      {{"element": "Decision Criteria", "present": <true|false>, "notes": "Brief observation"}},
+      {{"element": "Decision Process", "present": <true|false>, "notes": "Brief observation"}},
+      {{"element": "Identify Pain", "present": <true|false>, "notes": "Brief observation"}},
+      {{"element": "Champion", "present": <true|false>, "notes": "Brief observation"}}
+    ]
+  }}""",
+            'bant': """,
+  "methodology_checklist": {{
+    "methodology": "BANT",
+    "items": [
+      {{"element": "Budget", "present": <true|false>, "notes": "Brief observation"}},
+      {{"element": "Authority", "present": <true|false>, "notes": "Brief observation"}},
+      {{"element": "Need", "present": <true|false>, "notes": "Brief observation"}},
+      {{"element": "Timeline", "present": <true|false>, "notes": "Brief observation"}}
+    ]
+  }}""",
+            'sandler': """,
+  "methodology_checklist": {{
+    "methodology": "Sandler",
+    "items": [
+      {{"element": "Pain", "present": <true|false>, "notes": "Brief observation"}},
+      {{"element": "Budget", "present": <true|false>, "notes": "Brief observation"}},
+      {{"element": "Decision", "present": <true|false>, "notes": "Brief observation"}},
+      {{"element": "Relationship", "present": <true|false>, "notes": "Brief observation"}}
+    ]
+  }}""",
+            'solution_selling': """,
+  "methodology_checklist": {{
+    "methodology": "Solution Selling",
+    "items": [
+      {{"element": "Situation", "present": <true|false>, "notes": "Brief observation"}},
+      {{"element": "Problem", "present": <true|false>, "notes": "Brief observation"}},
+      {{"element": "Implication", "present": <true|false>, "notes": "Brief observation"}},
+      {{"element": "Need-Payoff", "present": <true|false>, "notes": "Brief observation"}}
+    ]
+  }}""",
+            'challenger': """,
+  "methodology_checklist": {{
+    "methodology": "Challenger",
+    "items": [
+      {{"element": "Warmer", "present": <true|false>, "notes": "Brief observation"}},
+      {{"element": "Reframe", "present": <true|false>, "notes": "Brief observation"}},
+      {{"element": "Rational Drowning", "present": <true|false>, "notes": "Brief observation"}},
+      {{"element": "Solution", "present": <true|false>, "notes": "Brief observation"}},
+      {{"element": "Action", "present": <true|false>, "notes": "Brief observation"}}
+    ]
+  }}"""
+        }
+
+        return format_map.get(methodology, "")
+
     def _create_deal_analysis_prompt(
         self,
         deal_data: Dict[str, Any],
-        violations: List[Dict[str, Any]]
+        violations: List[Dict[str, Any]],
+        user_context: Optional[Any] = None
     ) -> str:
-        """Create enhanced prompt for comprehensive deal analysis"""
+        """Create enhanced prompt for comprehensive deal analysis with optional user context"""
 
         # Calculate days in stage
         created_date = deal_data.get('created_date', '')
@@ -126,6 +225,86 @@ class ClaudeProvider(AIProvider):
 
         deal_amount = safe_amount_to_float(deal_data.get('amount', 0))
 
+        # Build user context section if available
+        user_context_section = ""
+        if user_context and user_context.has_profile():
+            role_text = ""
+            if user_context.role:
+                role_map = {
+                    'ic': 'Individual Contributor (AE/SDR)',
+                    'manager': 'Sales Manager',
+                    'director': 'Director',
+                    'vp': 'VP of Sales',
+                    'c_level': 'C-Level Executive'
+                }
+                role_text = role_map.get(user_context.role, user_context.role)
+
+            motion_text = ""
+            if user_context.selling_motion:
+                motion_map = {
+                    'hunter': 'Hunter (New Logos)',
+                    'farmer': 'Farmer (Account Management)',
+                    'hybrid': 'Hybrid'
+                }
+                motion_text = motion_map.get(user_context.selling_motion, user_context.selling_motion)
+
+            methodology_text = ""
+            if user_context.sales_methodology and user_context.sales_methodology != 'none':
+                methodology_map = {
+                    'meddic': 'MEDDIC',
+                    'bant': 'BANT',
+                    'sandler': 'Sandler',
+                    'solution_selling': 'Solution Selling',
+                    'challenger': 'Challenger Sale'
+                }
+                methodology_text = methodology_map.get(user_context.sales_methodology, user_context.sales_methodology)
+
+            years_text = ""
+            if user_context.years_in_sales:
+                years_map = {
+                    '<1': 'Less than 1 year',
+                    '1-3': '1-3 years',
+                    '3-5': '3-5 years',
+                    '5-10': '5-10 years',
+                    '10+': '10+ years'
+                }
+                years_text = years_map.get(user_context.years_in_sales, user_context.years_in_sales)
+
+            user_context_section = "\nSALES REP CONTEXT:\n"
+            user_context_section += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            if role_text:
+                user_context_section += f"Role:        {role_text}\n"
+            if motion_text:
+                user_context_section += f"Motion:      {motion_text}\n"
+            if years_text:
+                user_context_section += f"Experience:  {years_text}\n"
+            if methodology_text:
+                user_context_section += f"Methodology: {methodology_text}\n"
+
+            typical_cycle = user_context.get_typical_cycle_days()
+            if typical_cycle:
+                user_context_section += f"Typical Cycle: {typical_cycle} days\n"
+
+            typical_size = user_context.get_typical_deal_size()
+            if typical_size:
+                user_context_section += f"Typical Deal:  ${typical_size:,.0f}\n"
+
+            user_context_section += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+
+        # Build quota context section if available
+        quota_context_section = ""
+        if user_context and user_context.has_quota():
+            quota_context_section = "\nQUOTA CONTEXT:\n"
+            quota_context_section += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            quota_context_section += f"Q Target:    ${user_context.current_quarter_target:,.0f}\n"
+            if user_context.current_pipeline_value:
+                quota_context_section += f"Pipeline:    ${user_context.current_pipeline_value:,.0f}\n"
+            if user_context.gap_to_target:
+                quota_context_section += f"Gap:         ${user_context.gap_to_target:,.0f}\n"
+                quota_impact = (deal_amount / user_context.gap_to_target) * 100 if user_context.gap_to_target > 0 else 0
+                quota_context_section += f"Deal Impact: {quota_impact:.1f}% of quota gap\n"
+            quota_context_section += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+
         prompt = f"""You are an elite B2B sales coach with 20 years of experience analyzing enterprise deals. You have a deep understanding of deal psychology, buyer behavior, and pipeline dynamics.
 
 DEAL SNAPSHOT:
@@ -140,12 +319,12 @@ Contact:     {deal_data.get('primary_contact', 'Not set')}
 Created:     {created_date}
 Last Touch:  {last_activity}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
+{user_context_section}{quota_context_section}
 DATA QUALITY ASSESSMENT:
 {violations_text}
 
 YOUR MISSION:
-As this AE's personal coach, analyze this deal with brutal honesty and provide actionable guidance they can execute TODAY.
+As this rep's personal coach, analyze this deal with brutal honesty and provide actionable guidance they can execute TODAY.
 
 ANALYSIS FRAMEWORK:
 
@@ -155,12 +334,12 @@ ANALYSIS FRAMEWORK:
    - 61-100: High risk (serious issues, likely to slip/lose)
 
    Consider:
-   - Deal value vs typical deal size
-   - Time in stage vs typical sales cycle
+   - Deal value vs typical deal size{' (typical: $' + f'{user_context.get_typical_deal_size():,.0f})' if user_context and user_context.get_typical_deal_size() else ''}
+   - Time in stage vs typical sales cycle{' (typical: ' + str(user_context.get_typical_cycle_days()) + ' days)' if user_context and user_context.get_typical_cycle_days() else ''}
    - Data quality (missing info = red flag)
    - Activity patterns (staleness = death)
    - Close date realism
-   - Stage progression logic
+   - Stage progression logic{self._get_methodology_guidance(user_context) if user_context and user_context.has_methodology() else ''}
 
 2. RISK FACTORS:
    List 3-5 specific, concrete risk factors. Be direct. Examples:
@@ -227,7 +406,7 @@ RESPONSE FORMAT - VALID JSON ONLY:
     "activity_momentum": <number 0-100>,
     "stakeholder_engagement": <number 0-100>,
     "timeline_realism": <number 0-100>
-  }}
+  }}{self._get_methodology_json_format(user_context) if user_context and user_context.has_methodology() else ''}
 }}
 
 CRITICAL RULES:
@@ -245,16 +424,17 @@ BEGIN ANALYSIS:"""
     async def analyze_deal(
         self,
         deal_data: Dict[str, Any],
-        violations: List[Dict[str, Any]]
+        violations: List[Dict[str, Any]],
+        user_context: Optional[Any] = None
     ) -> AIAnalysisResult:
-        """Analyze single deal using Claude"""
+        """Analyze single deal using Claude with optional user context"""
 
         try:
-            prompt = self._create_deal_analysis_prompt(deal_data, violations)
+            prompt = self._create_deal_analysis_prompt(deal_data, violations, user_context)
 
             response = self.client.messages.create(
                 model=self.model,
-                max_tokens=1500,
+                max_tokens=2000,  # Increased for methodology checklist
                 messages=[
                     {
                         "role": "user",
@@ -278,7 +458,21 @@ BEGIN ANALYSIS:"""
 
             result = json.loads(response_text)
 
-            # Create standardized result
+            # Extract methodology checklist if present
+            methodology_score = None
+            if result.get("methodology_checklist"):
+                checklist = result["methodology_checklist"]
+                completed = sum(1 for item in checklist.get("items", []) if item.get("present"))
+                total = len(checklist.get("items", []))
+                methodology_score = {
+                    "methodology": checklist.get("methodology"),
+                    "completed": completed,
+                    "total": total,
+                    "completion_pct": round((completed / total) * 100) if total > 0 else 0,
+                    "items": checklist.get("items", [])
+                }
+
+            # Create standardized result with enhanced metadata
             return AIAnalysisResult(
                 deal_id=deal_data.get("id", "unknown"),
                 deal_name=deal_data.get("name", "Unknown"),
@@ -289,7 +483,8 @@ BEGIN ANALYSIS:"""
                 action_priority=result.get("action_priority", "medium"),
                 action_rationale=result.get("action_rationale", ""),
                 executive_summary=result.get("executive_summary", ""),
-                confidence=float(result.get("confidence", 0.7))
+                confidence=float(result.get("confidence", 0.7)),
+                methodology_score=methodology_score
             )
 
         except json.JSONDecodeError as e:
@@ -304,9 +499,10 @@ BEGIN ANALYSIS:"""
     async def analyze_pipeline(
         self,
         deals: List[Dict[str, Any]],
-        violations_by_deal: Dict[str, List[Dict[str, Any]]]
+        violations_by_deal: Dict[str, List[Dict[str, Any]]],
+        user_context: Optional[Any] = None
     ) -> List[AIAnalysisResult]:
-        """Analyze all deals in pipeline with a single API call"""
+        """Analyze all deals in pipeline with a single API call (user_context for future enhancement)"""
 
         # Create batch analysis prompt with all deals
         deals_data = []
