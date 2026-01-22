@@ -1,0 +1,543 @@
+Based on the comprehensive research into your codebase, I can now provide
+you with a strategic plan for enhancing RevTrust's data collection and
+insight capabilities.
+
+🎯 Strategic Analysis: Data Collection & Enhanced Insights
+
+Current State Summary
+
+What You're Doing Well:
+
+Strong technical foundation for deal analysis and business rule
+violations
+AI-powered risk scoring and coaching infrastructure
+Flexible data model with JSON fields for extensibility
+Win/loss pattern detection capabilities
+Team forecast rollup features
+Critical Gap Identified:
+RevTrust operates in a "context vacuum" - your AI coaches without knowing:
+
+WHO the user is (hunter vs farmer, experience level, methodology)
+WHAT they sell (product complexity, deal structure, typical cycles)
+WHERE they operate (territory, market dynamics, competition)
+WHY deals matter differently (strategic accounts, quota pressure,
+timing)
+📊 Proposed Data Collection Framework
+
+I recommend a three-tier approach to data collection:
+
+TIER 1: Critical Context (Onboarding - Must Have)
+
+Captured during first-time setup, blocks progress until complete
+
+TIER 2: Enhanced Context (Progressive Disclosure)
+
+Captured naturally during product usage via smart prompts
+
+TIER 3: Advanced Context (Power User Features)
+
+Opt-in for users wanting maximum personalization
+
+🎯 TIER 1: Critical Context Data Points
+
+Revenue Targets & Quota Management
+Why: Foundation for all forecast coaching and gap analysis
+
+Data to Capture:
+
+Annual quota/target ($)
+Quarterly breakdown (Q1-Q4 targets)
+Achievement percentage vs quota (optional historical)
+Target setting authority (self-set, manager-assigned, company-mandated)
+How to Capture:
+
+Onboarding step: "What's your revenue target for [current quarter]?"
+Allow easy updates in Settings → Performance tab
+For teams: Manager sets team targets, optionally individual targets
+AI Enhancement Unlocked:
+
+✅ Accurate gap-to-quota coaching
+✅ "You need 3 more deals like X to hit quota"
+✅ Prioritization based on quota urgency
+✅ Week-by-week pacing recommendations
+Implementation Priority: 🔴 HIGH - Forecast coaching requires this
+
+Sales Methodology Preference
+Why: Coaching should align with how they actually sell
+
+Data to Capture:
+
+Primary methodology: MEDDIC, BANT, Sandler, Solution Selling,
+Challenger, Custom, None
+Optional: Specific framework elements they track (e.g., "We always
+identify Economic Buyer")
+How to Capture:
+
+Onboarding: "How does your team qualify deals?" (dropdown + description)
+Settings → Profile tab for changes
+AI Enhancement Unlocked:
+
+✅ Coaching aligned to methodology (e.g., MEDDIC: "Have you identified
+the Decision Criteria?")
+✅ Risk factors based on missing methodology elements
+✅ Next best actions match their sales process
+✅ Win/loss analysis by methodology adherence
+Implementation Priority: 🔴 HIGH - Dramatically improves coaching
+relevance
+
+Role & Selling Profile
+Why: Hunters and farmers need completely different coaching
+
+Data to Capture:
+
+Primary role: Individual Contributor (AE/SDR), Manager, Director/VP,
+C-Level
+Selling motion: Hunter (new logos), Farmer (account management), Hybrid
+Years in sales: <1, 1-3, 3-5, 5-10, 10+
+Team size (if manager): number of direct reports
+How to Capture:
+
+Onboarding: "Tell us about your role" (3 quick questions)
+Auto-detect from CRM if possible (owner name patterns, deal types)
+AI Enhancement Unlocked:
+
+✅ Hunter: Aggressive prospecting coaching, urgency on early-stage deals
+✅ Farmer: Expansion coaching, churn risk alerts, relationship depth
+✅ Junior reps: More educational coaching, sales process reinforcement
+✅ Senior reps: Strategic coaching, deal complexity navigation
+✅ Managers: Team-level insights, coaching team members on risky deals
+Implementation Priority: 🔴 HIGH - Fundamentally changes coaching tone
+
+Typical Sales Cycle & Deal Profile
+Why: Context for "is this deal moving too slow?"
+
+Data to Capture:
+
+Average sales cycle length (days or range: <30, 30-60, 60-90, 90-180,
+180+)
+Typical deal size (range: <$10K, $10K-$50K, $50K-$100K, $100K-$500K,
+$500K+)
+Deal count per quarter (1-5, 5-10, 10-25, 25-50, 50+)
+Sales model: Transactional, Mid-market, Enterprise
+How to Capture:
+
+Onboarding: "Describe your typical deal" (3 dropdowns)
+Auto-calculate from historical data after first analysis
+AI Enhancement Unlocked:
+
+✅ Accurate "deal velocity" risk scoring
+✅ "This deal is 2x your average cycle - high risk"
+✅ Stage duration benchmarks customized to user
+✅ Deal prioritization by realistic close timing
+Implementation Priority: 🟡 MEDIUM-HIGH - Improves risk scoring accuracy
+
+🚀 TIER 2: Enhanced Context (Progressive Disclosure)
+
+Product/Service Portfolio
+Why: Different products have different sales cycles and stakeholders
+
+Data to Capture:
+
+Product/service names (user-defined list)
+Optional: Typical cycle, price range, buyer personas per product
+Deal-level product tagging (from custom fields or manual)
+How to Capture:
+
+Smart prompt after first 3 analyses: "Want to tag deals by product for
+better insights?"
+Settings → Products tab
+Auto-suggest from deal names/descriptions
+AI Enhancement Unlocked:
+
+✅ Product-specific win/loss patterns
+✅ "Your Enterprise product has a 73% longer cycle than SMB"
+✅ Cross-sell/upsell opportunity detection
+✅ Product mix forecast analysis
+Implementation Priority: 🟡 MEDIUM - Valuable for multi-product companies
+
+Territory & Market Context
+Why: Different markets behave differently
+
+Data to Capture:
+
+Geographic territory (region, state, country)
+Vertical/industry focus (if specialized)
+Market maturity: Greenfield, Growing, Mature, Declining
+Primary competition (optional: competitor names)
+How to Capture:
+
+Onboarding (optional step)
+Auto-detect from account data (industry, location fields)
+Settings → Territory tab
+AI Enhancement Unlocked:
+
+✅ Regional performance benchmarking
+✅ Industry-specific coaching
+✅ Competitive intelligence insights
+✅ Market-adjusted risk scoring
+Implementation Priority: 🟡 MEDIUM - Useful for territory-based teams
+
+Strategic Account Flags
+Why: Not all deals are equal - strategic deals deserve special attention
+
+Data to Capture:
+
+Strategic account list (named accounts that matter most)
+Account tier: Strategic, Key, Standard
+Relationship status: New, Existing, At-Risk, Champion
+How to Capture:
+
+Deal-level tagging in analysis results
+Bulk import from CSV
+Settings → Strategic Accounts
+AI Enhancement Unlocked:
+
+✅ "This is a strategic account - prioritize this over 3 smaller deals"
+✅ Risk alerts weighted by account importance
+✅ Relationship health scoring
+✅ White-glove coaching for strategic deals
+Implementation Priority: 🟢 MEDIUM-LOW - High value for enterprise teams
+
+Stakeholder & Buying Committee Patterns
+Why: Complex B2B deals need stakeholder mapping
+
+Data to Capture:
+
+Typical stakeholder count per deal
+Key roles required for close: Economic Buyer, Champion, Technical Buyer,
+End User, Coach
+Decision-making process: Committee, Single Decision Maker, Consensus
+How to Capture:
+
+Post-analysis prompt: "Who typically needs to approve deals like this?"
+Win/loss analysis: "Who was missing from this deal?"
+Settings → Buying Process tab
+AI Enhancement Unlocked:
+
+✅ "You're missing the Economic Buyer - high risk"
+✅ Stakeholder coverage scoring
+✅ Multi-threading recommendations
+✅ Win rate by stakeholder completeness
+Implementation Priority: 🟢 MEDIUM-LOW - Complex but high ROI
+
+💎 TIER 3: Advanced Context (Power User Features)
+
+Coaching Preferences
+Data to Capture:
+
+Coaching style: Aggressive, Balanced, Conservative
+Notification frequency: Real-time, Daily digest, Weekly summary
+Risk tolerance: Show me everything, Critical only, Balanced
+Communication tone: Direct/Blunt, Professional, Encouraging
+AI Enhancement: Personalized coaching that matches user preferences
+
+Implementation Priority: 🟢 LOW - Nice-to-have personalization
+
+Historical Performance Data
+Data to Capture:
+
+Win rate (last 6/12 months)
+Average close rate by stage
+Quota attainment history
+Best/worst performing months
+How to Capture: Auto-calculate from CRM history or manual entry
+
+AI Enhancement: Personalized benchmarking and trend analysis
+
+Implementation Priority: 🟢 LOW - Requires historical data
+
+Activity Patterns & Engagement Metrics
+Data to Capture (from CRM):
+
+Call frequency
+Email response rates
+Meeting cadence
+Engagement score
+AI Enhancement: Activity momentum scoring, engagement health
+
+Implementation Priority: 🟢 LOW - Requires deep CRM integration
+
+🎨 Feature Recommendations: How to Capture & Use This Data
+
+Feature 1: Smart Onboarding Flow
+
+What: 3-step onboarding wizard on first login
+
+Steps:
+
+About You (30 seconds)
+- Role dropdown
+- Hunter/Farmer/Hybrid selector
+- Years in sales slider
+Your Sales Process (45 seconds)
+- Methodology dropdown with descriptions
+- Typical cycle + deal size
+- Team size (if manager)
+Set Your Target (30 seconds)
+- Current quarter revenue target
+- Optional: Annual target for auto-quarterly breakdown
+- "Skip for now" option (but persistent reminder)
+Why This Works:
+
+Gets critical context immediately
+~2 minutes total (low friction)
+Can skip and complete later
+Unlocks personalized coaching instantly
+Implementation:
+
+New users redirected to /onboarding on first visit
+Progress saved (can complete across sessions)
+Completion badge/reward
+Reminder banner if skipped
+Feature 2: Dynamic Settings Enhancement
+
+What: Expand Settings page with new tabs
+
+New Tabs:
+
+Profile - Role, methodology, experience, selling motion
+Performance - Targets/quota by quarter, update anytime
+Territory - Market, industry, geography, competition
+Products - Product catalog, typical cycles, pricing
+Preferences - Coaching style, notifications, tone
+Why This Works:
+
+All context editable in one place
+Progressive disclosure - only show what's relevant
+Non-blocking - can update anytime
+Import/export for bulk operations
+Feature 3: Contextual Data Prompts (Progressive Disclosure)
+
+What: Smart prompts that appear at relevant moments
+
+Examples:
+
+After 1st Analysis:
+"💡 Set your Q1 target to get gap-to-quota insights"
+[Set Target] [Maybe Later]
+
+After 3rd Analysis:
+"📦 Tag deals by product to unlock product-specific insights"
+[Set Up Products] [Dismiss]
+
+After 1st Win/Loss Analysis:
+"🎯 Which methodology do you use? We'll align coaching to your process"
+[Choose Methodology]
+
+When Deal Goes Stale:
+"⚠️ This deal hasn't moved in 21 days (2x your avg cycle). Need help?"
+[Get Coaching] [Mark as Strategic]
+
+Why This Works:
+
+Zero friction - appears when relevant
+Shows value immediately
+User learns incrementally
+Dismissible but persistent
+Feature 4: Enhanced Deal Analysis with Full Context
+
+What: AI analysis that leverages all captured context
+
+Example Analysis Output (with full context):
+
+Current (Limited Context):
+"This deal has been in Discovery for 45 days - longer than average."
+
+Enhanced (Full Context):
+"This $250K deal has been in Discovery for 45 days - that's 2x your
+typical 23-day Discovery cycle for Enterprise deals. For MEDDIC
+qualification, you're missing: Decision Criteria and Economic Buyer. Based
+on your $500K Q1 target, this deal represents 50% of your remaining gap.
+Critical Priority: Identify the Economic Buyer this week."
+
+Why This Works:
+
+Hyper-relevant coaching
+Methodology-aligned recommendations
+Quota-aware prioritization
+Experience-appropriate tone
+Feature 5: Smart Deal Tagging & Categorization
+
+What: AI-powered deal classification using captured context
+
+Auto-Generated Tags:
+
+Product type (from product catalog)
+Strategic account flag (from strategic account list)
+Deal complexity (simple/standard/complex based on size, cycle,
+stakeholders)
+Urgency tier (based on quota gap and timing)
+Coaching priority (1-5 based on all signals)
+Why This Works:
+
+No manual tagging needed
+Consistent classification
+Easier filtering and reporting
+Powers AI prioritization
+Feature 6: Methodology-Specific Deal Scorecards
+
+What: Deal health scorecards aligned to user's methodology
+
+Example (MEDDIC):
+
+✅ Metrics: Defined (from custom fields)
+⚠️ Economic Buyer: Not identified
+✅ Decision Criteria: Documented
+❌ Decision Process: Missing
+✅ Identify Pain: Confirmed
+✅ Champion: Identified
+Score: 4/6 MEDDIC Elements Complete
+
+Why This Works:
+
+Speaks user's language
+Clear gaps to address
+Process compliance tracking
+Win rate correlation by methodology adherence
+Feature 7: Personalized Forecast Coaching
+
+What: Quota-aware forecast insights
+
+Unlocked by Revenue Target Data:
+
+Dashboard Widget:
+Q1 2026 Forecast
+Target: $500,000
+Pipeline: $1,200,000 (2.4x coverage)
+Weighted: $420,000 (84% of target)
+Gap: $80,000
+
+⚠️ At Risk - Need 2 more deals to hit target
+
+This Week Priority:
+
+Close "Acme Corp" ($150K) - 90% likely, close by Friday
+Advance "TechCo" ($100K) - Get Economic Buyer meeting
+Rescue "Global Inc" ($200K) - Stalled 30 days, your longest deal
+Why This Works:
+
+Clear gap visibility
+Actionable priorities
+Reality check on forecast confidence
+Week-by-week pacing
+🎯 Implementation Roadmap
+
+Phase 1: Foundation (Weeks 1-2)
+
+Goal: Capture critical context from all users
+
+Build onboarding flow (3 steps)
+Add database fields:
+- User: role, selling_motion, years_in_sales, methodology,
+typical_cycle, typical_deal_size
+- Organization: revenue_targets (JSON by quarter)
+Update Settings with Profile + Performance tabs
+Deploy onboarding for new users
+Banner prompt for existing users to complete profile
+Metrics: % users who complete onboarding, time to complete
+
+Phase 2: Enhanced Analysis (Weeks 3-4)
+
+Goal: AI uses new context for better coaching
+
+Update deal analysis prompt to include:
+- User methodology
+- Quota gap context
+- Cycle benchmarks
+Build methodology scorecards (MEDDIC, BANT templates)
+Add quota-aware forecast coaching
+Deploy enhanced analysis to Pro/Enterprise users first
+Metrics: User engagement with coaching, deal progression improvement
+
+Phase 3: Progressive Features (Weeks 5-6)
+
+Goal: Capture Tier 2 context naturally
+
+Build product catalog feature
+Add strategic account tagging
+Territory/market settings
+Contextual prompts system
+Smart deal categorization
+Metrics: % users who add products, strategic accounts
+
+Phase 4: Power User Features (Weeks 7-8)
+
+Goal: Advanced personalization
+
+Coaching preferences
+Stakeholder mapping
+Activity pattern analysis
+Historical performance tracking
+A/B test coaching style effectiveness
+Metrics: Retention, NPS, win rate improvement
+
+📊 Expected Impact by Feature
+
+| Feature | Data Captured | AI Enhancement
+
+User Value	Effort	Priority
+-------	-----------------	--------
+Revenue Targets	Quota by quarter	Gap-aware coaching
+     | 🔥🔥🔥 Critical | Low    | 🔴 P0    |
+| Sales Methodology | Process framework | Aligned coaching
+| 🔥🔥🔥 Critical | Low | 🔴 P0 |
+| Role & Profile | Hunter/farmer, experience | Personalized tone
+| 🔥🔥 High | Low | 🔴 P0 |
+| Sales Cycle Benchmarks | Typical days, size | Accurate risk
+scoring | 🔥🔥 High | Low | 🟡 P1 |
+| Product Catalog | Products sold | Product-specific
+insights | 🔥 Medium | Medium | 🟡 P1 |
+| Territory Context | Market, geography | Regional benchmarks
+| 🔥 Medium | Low | 🟡 P2 |
+| Strategic Accounts | VIP customer list | Priority weighting
+| 🔥 Medium | Medium | 🟢 P2 |
+| Stakeholder Mapping | Buying committee | Coverage analysis
+| 🔥🔥 High | High | 🟢 P3 |
+| Coaching Preferences | Style, frequency | Personalization
+| 🔥 Low | Low | 🟢 P3 |
+
+💡 Key Success Factors
+
+Start Small, Learn Fast
+- Phase 1 captures 80% of value with 20% of effort
+- Test onboarding conversion rates before building more
+Make It Optional (But Valuable)
+- Never block core features
+- Show value immediately when context is added
+- "Before/after" examples of coaching quality
+Progressive Disclosure
+- Don't ask for everything upfront
+- Prompt when relevant
+- Celebrate completion milestones
+Auto-Detection When Possible
+- Infer methodology from deal patterns
+- Calculate benchmarks from historical data
+- Pre-fill from CRM data
+Show, Don't Tell
+- Demo better coaching in onboarding
+- Real examples: "Coaching without context" vs "With context"
+- Quick wins (set target → see gap instantly)
+🎬 Next Steps
+
+For Planning:
+
+Validate these recommendations against your product vision
+Prioritize based on your target customer profile
+Decide on onboarding friction tolerance
+Define success metrics for each phase
+For Development:
+
+I can help design the onboarding flow UI/UX
+Create database migration for new fields
+Update AI prompts with context variables
+Build the Settings page enhancements
+Implement progressive disclosure system
+Questions for You:
+
+Which user persona do you want to optimize for first? (Hunter vs Farmer
+vs Manager)
+How much onboarding friction is acceptable? (Skip-able vs required)
+Do you want to A/B test coaching improvements with/without context?
+Should we focus on individual contributors or team/manager features
+first?
+What would you like to tackle first?

@@ -1,13 +1,15 @@
 """
 User routes for subscription status and user profile
 """
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header
 from typing import Dict, Any
 from prisma import Prisma
+import logging
 
 from app.auth import get_current_user_id, get_current_user_email
 
 router = APIRouter(prefix="/api/user", tags=["User"])
+logger = logging.getLogger(__name__)
 
 
 @router.get("/subscription")
@@ -80,10 +82,12 @@ async def get_subscription_status(
 
 @router.get("/profile")
 async def get_user_profile(
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(get_current_user_id),
+    user_email: str = Depends(get_current_user_email)
 ) -> Dict[str, Any]:
     """
-    Get current user's profile information.
+    Get current user's profile information including sales profile fields.
+    Auto-creates user if they don't exist yet.
     """
     prisma = Prisma()
     await prisma.connect()
@@ -93,8 +97,23 @@ async def get_user_profile(
             where={"clerkId": user_id}
         )
 
+        # Auto-create user if they don't exist
         if not user:
-            raise HTTPException(404, "User not found")
+            logger.info(f"User not found in GET profile, creating new user: {user_id}")
+
+            email = user_email if user_email else f"{user_id}@temp.revtrust.net"
+            if not user_email:
+                logger.warning(f"Could not extract email from token, using placeholder: {email}")
+
+            user = await prisma.user.create(
+                data={
+                    "clerkId": user_id,
+                    "email": email,
+                    "subscriptionTier": "free",
+                    "subscriptionStatus": "active"
+                }
+            )
+            logger.info(f"Created new user: {user.id} with email: {email}")
 
         return {
             "id": user.id,
@@ -102,6 +121,15 @@ async def get_user_profile(
             "firstName": user.firstName,
             "lastName": user.lastName,
             "createdAt": user.createdAt.isoformat() if user.createdAt else None,
+            # Sales profile fields
+            "role": user.role,
+            "sellingMotion": user.sellingMotion,
+            "yearsInSales": user.yearsInSales,
+            "salesMethodology": user.salesMethodology,
+            "typicalSalesCycle": user.typicalSalesCycle,
+            "typicalDealSize": user.typicalDealSize,
+            "onboardingCompleted": user.onboardingCompleted,
+            "onboardingCompletedAt": user.onboardingCompletedAt.isoformat() if user.onboardingCompletedAt else None,
         }
 
     finally:

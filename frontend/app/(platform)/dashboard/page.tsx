@@ -19,7 +19,9 @@ import {
   CheckCircle2,
   ArrowRight,
   Loader2,
-  Sparkles
+  Sparkles,
+  Info,
+  X
 } from "lucide-react"
 import { useAuthenticatedFetch } from "@/hooks/useAuthenticatedFetch"
 import { formatToEST } from "@/lib/utils"
@@ -35,6 +37,7 @@ interface DashboardStats {
   scheduledScansCount: number
   subscriptionTier: string
   subscriptionStatus: string
+  onboardingCompleted: boolean
   recentScans: {
     analysis_id: string
     filename: string
@@ -50,6 +53,7 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [onboardingBannerDismissed, setOnboardingBannerDismissed] = useState(false)
 
   const isPaidUser = stats?.subscriptionTier && ["pro", "team", "enterprise"].includes(stats.subscriptionTier)
 
@@ -143,6 +147,42 @@ export default function DashboardPage() {
           Settings
         </Button>
       </div>
+
+      {/* Onboarding Reminder Banner */}
+      {stats && !stats.onboardingCompleted && !onboardingBannerDismissed && (
+        <Card className="mb-8 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+          <CardContent className="p-6">
+            <div className="flex items-start justify-between">
+              <div className="flex items-start gap-4 flex-1">
+                <div className="p-3 rounded-full bg-blue-100">
+                  <Info className="h-6 w-6 text-blue-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-slate-900 mb-1">Complete your profile for personalized insights</h3>
+                  <p className="text-sm text-slate-600 mb-4">
+                    Take 2 minutes to tell us about your sales process and get AI coaching tailored to your methodology, quota, and experience level.
+                  </p>
+                  <Button
+                    onClick={() => router.push("/onboarding")}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    Complete Setup
+                    <ArrowRight className="h-4 w-4 ml-2" />
+                  </Button>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setOnboardingBannerDismissed(true)}
+                className="ml-4"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Primary CTA - Scan Now */}
       <Card className="mb-8 bg-gradient-to-r from-blue-600 to-blue-700 text-white border-0 shadow-lg">

@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 # This ensures email_service.py and other modules can read .env values at import time
 load_dotenv()
 
-from app.routes import analyze, health, ai_analysis, ai_chat, ai_email, stripe_routes, webhooks, feedback, analytics, admin, crm_oauth, scheduled_reviews, output_templates, organizations, forecast, crm_write, email_test, user, rules, admin_prompts, admin_users, dashboard, scan, settings, saved_scans, winloss_patterns, contact
+from app.routes import analyze, health, ai_analysis, ai_chat, ai_email, stripe_routes, webhooks, feedback, analytics, admin, crm_oauth, scheduled_reviews, output_templates, organizations, forecast, crm_write, email_test, user, rules, admin_prompts, admin_users, dashboard, scan, settings, saved_scans, winloss_patterns, contact, profile
 from app.services.scheduler_service import get_scheduler_service
 
 # Configure logging
@@ -143,3 +143,4 @@ app.include_router(settings.router, tags=["Settings"])
 app.include_router(saved_scans.router, tags=["Saved Scans"])
 app.include_router(winloss_patterns.router, tags=["Win/Loss Patterns"])
 app.include_router(contact.router, tags=["Contact"])
+app.include_router(profile.router, tags=["User Profile"])

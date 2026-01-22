@@ -155,6 +155,7 @@ async def get_dashboard_stats(
             "scheduledScansCount": scheduled_count,
             "subscriptionTier": user.subscriptionTier or "free",
             "subscriptionStatus": user.subscriptionStatus or "active",
+            "onboardingCompleted": user.onboardingCompleted or False,
             "recentScans": [
                 {
                     "analysis_id": a.get("analysis_id"),

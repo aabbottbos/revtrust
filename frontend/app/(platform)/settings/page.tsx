@@ -24,8 +24,12 @@ import {
   ArrowLeft,
   ExternalLink,
   Sparkles,
-  AlertCircle
+  AlertCircle,
+  Target,
+  UserCircle,
+  TrendingUp
 } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useAuthenticatedFetch } from "@/hooks/useAuthenticatedFetch"
 import { toast } from "sonner"
 
@@ -56,13 +60,43 @@ interface DeliverySettings {
   emailEnabled: boolean
 }
 
+// Helper component to display saved value with clear button
+function SavedValueDisplay({
+  value,
+  onClear,
+  getDisplayText
+}: {
+  value: string
+  onClear: () => void
+  getDisplayText: (val: string) => string
+}) {
+  if (!value) return null
+
+  return (
+    <div className="flex items-center gap-2 mt-2 p-2 bg-blue-50 border border-blue-200 rounded-md">
+      <div className="flex-1 text-sm text-blue-900">
+        <span className="font-medium">Current: </span>
+        {getDisplayText(value)}
+      </div>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={onClear}
+        className="h-6 w-6 p-0 hover:bg-blue-100"
+      >
+        <X className="h-4 w-4 text-blue-600" />
+      </Button>
+    </div>
+  )
+}
+
 function SettingsContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user } = useUser()
   const authenticatedFetch = useAuthenticatedFetch()
 
-  const defaultTab = searchParams.get("tab") || "crm"
+  const defaultTab = searchParams.get("tab") || "profile"
 
   // CRM state
   const [connections, setConnections] = useState<CRMConnection[]>([])
@@ -87,13 +121,261 @@ function SettingsContent() {
   const [loadingSubscription, setLoadingSubscription] = useState(true)
   const [creatingPortal, setCreatingPortal] = useState(false)
 
+  // Profile state
+  const [profileData, setProfileData] = useState({
+    role: "",
+    sellingMotion: "",
+    yearsInSales: "",
+    salesMethodology: "",
+    typicalSalesCycle: "",
+    typicalDealSize: "",
+  })
+  const [savedProfileData, setSavedProfileData] = useState({
+    role: "",
+    sellingMotion: "",
+    yearsInSales: "",
+    salesMethodology: "",
+    typicalSalesCycle: "",
+    typicalDealSize: "",
+  })
+  const [loadingProfile, setLoadingProfile] = useState(true)
+  const [savingProfile, setSavingProfile] = useState(false)
+
+  // Performance state
+  const [revenueTargets, setRevenueTargets] = useState<any[]>([])
+  const [loadingTargets, setLoadingTargets] = useState(true)
+  const [newTarget, setNewTarget] = useState({
+    year: new Date().getFullYear(),
+    quarter: Math.floor(new Date().getMonth() / 3) + 1,
+    target: "",
+  })
+  const [savingTarget, setSavingTarget] = useState(false)
+
   const isPaidUser = subscription?.tier && ["pro", "team", "enterprise"].includes(subscription.tier)
+
+  // Helper functions for display text
+  const getRoleDisplayText = (value: string) => {
+    const map: Record<string, string> = {
+      ic: "Individual Contributor (AE/SDR)",
+      manager: "Sales Manager",
+      director: "Director of Sales",
+      vp: "VP of Sales",
+      c_level: "C-Level (CRO/CEO)"
+    }
+    return map[value] || value
+  }
+
+  const getSellingMotionDisplayText = (value: string) => {
+    const map: Record<string, string> = {
+      hunter: "Hunter (New Logos)",
+      farmer: "Farmer (Account Management)",
+      hybrid: "Hybrid (Both)"
+    }
+    return map[value] || value
+  }
+
+  const getYearsDisplayText = (value: string) => {
+    const map: Record<string, string> = {
+      "<1": "Less than 1 year",
+      "1-3": "1-3 years",
+      "3-5": "3-5 years",
+      "5-10": "5-10 years",
+      "10+": "10+ years"
+    }
+    return map[value] || value
+  }
+
+  const getMethodologyDisplayText = (value: string) => {
+    const map: Record<string, string> = {
+      meddic: "MEDDIC",
+      bant: "BANT",
+      sandler: "Sandler",
+      solution_selling: "Solution Selling",
+      challenger: "Challenger Sale",
+      custom: "Custom/Proprietary",
+      none: "No formal methodology"
+    }
+    return map[value] || value
+  }
+
+  const getCycleDisplayText = (value: string) => {
+    const map: Record<string, string> = {
+      "<30": "Less than 30 days",
+      "30-60": "30-60 days",
+      "60-90": "60-90 days",
+      "90-180": "90-180 days",
+      "180+": "180+ days"
+    }
+    return map[value] || value
+  }
+
+  const getDealSizeDisplayText = (value: string) => {
+    const map: Record<string, string> = {
+      "<10k": "Less than $10K",
+      "10k-50k": "$10K - $50K",
+      "50k-100k": "$50K - $100K",
+      "100k-500k": "$100K - $500K",
+      "500k+": "$500K+"
+    }
+    return map[value] || value
+  }
 
   useEffect(() => {
     fetchConnections()
     fetchDeliverySettings()
     fetchSubscription()
+    fetchProfile()
+    fetchRevenueTargets()
   }, [])
+
+  // Profile Functions
+  const fetchProfile = async () => {
+    try {
+      const res = await authenticatedFetch(`${process.env.NEXT_PUBLIC_API_URL}/api/user/profile`)
+
+      if (res.ok) {
+        const data = await res.json()
+
+        const profile = {
+          role: data.role || "",
+          sellingMotion: data.sellingMotion || "",
+          yearsInSales: data.yearsInSales || "",
+          salesMethodology: data.salesMethodology || "",
+          typicalSalesCycle: data.typicalSalesCycle || "",
+          typicalDealSize: data.typicalDealSize || "",
+        }
+
+        // Set profile data for the form
+        setProfileData({ ...profile })
+        // Set saved profile data for the display (create separate object reference)
+        setSavedProfileData({ ...profile })
+      }
+    } catch (err) {
+      console.error("Error fetching profile:", err)
+    } finally {
+      setLoadingProfile(false)
+    }
+  }
+
+  const saveProfile = async () => {
+    setSavingProfile(true)
+    try {
+      const res = await authenticatedFetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/user/profile`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            role: profileData.role || null,
+            selling_motion: profileData.sellingMotion || null,
+            years_in_sales: profileData.yearsInSales || null,
+            sales_methodology: profileData.salesMethodology || null,
+            typical_sales_cycle: profileData.typicalSalesCycle || null,
+            typical_deal_size: profileData.typicalDealSize || null,
+          })
+        }
+      )
+
+      if (res.ok) {
+        toast.success("Profile updated successfully")
+        // Fetch fresh data from API to ensure saved and current data are in sync
+        await fetchProfile()
+      } else {
+        toast.error("Failed to update profile")
+      }
+    } catch (err) {
+      console.error("Error saving profile:", err)
+      toast.error("Failed to update profile")
+    } finally {
+      setSavingProfile(false)
+    }
+  }
+
+  // Performance Functions
+  const fetchRevenueTargets = async () => {
+    try {
+      const res = await authenticatedFetch(`${process.env.NEXT_PUBLIC_API_URL}/api/user/revenue-targets`)
+      if (res.ok) {
+        const data = await res.json()
+        setRevenueTargets(data.targets || [])
+      }
+    } catch (err) {
+      console.error("Error fetching revenue targets:", err)
+    } finally {
+      setLoadingTargets(false)
+    }
+  }
+
+  const saveRevenueTarget = async () => {
+    if (!newTarget.target || parseFloat(newTarget.target) <= 0) {
+      toast.error("Please enter a valid revenue target")
+      return
+    }
+
+    // Check if this quarter/year combo already exists
+    const existing = revenueTargets.find(
+      t => t.year === newTarget.year && t.quarter === newTarget.quarter
+    )
+
+    setSavingTarget(true)
+    try {
+      const res = await authenticatedFetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/user/revenue-target`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            year: newTarget.year,
+            quarter: newTarget.quarter,
+            target: parseFloat(newTarget.target),
+            set_by: "self",
+          })
+        }
+      )
+
+      if (res.ok) {
+        if (existing) {
+          toast.success(`Q${newTarget.quarter} ${newTarget.year} target updated`)
+        } else {
+          toast.success(`Q${newTarget.quarter} ${newTarget.year} target added`)
+        }
+
+        setNewTarget({
+          year: new Date().getFullYear(),
+          quarter: Math.floor(new Date().getMonth() / 3) + 1,
+          target: "",
+        })
+        fetchRevenueTargets()
+      } else {
+        const error = await res.json()
+        toast.error(error.detail || "Failed to save revenue target")
+      }
+    } catch (err) {
+      toast.error("Failed to save revenue target")
+    } finally {
+      setSavingTarget(false)
+    }
+  }
+
+  const deleteRevenueTarget = async (targetId: string) => {
+    if (!confirm("Are you sure you want to delete this revenue target?")) return
+
+    try {
+      const res = await authenticatedFetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/user/revenue-target/${targetId}`,
+        { method: "DELETE" }
+      )
+
+      if (res.ok) {
+        toast.success("Revenue target deleted")
+        fetchRevenueTargets()
+      } else {
+        toast.error("Failed to delete revenue target")
+      }
+    } catch (err) {
+      toast.error("Failed to delete revenue target")
+    }
+  }
 
   // CRM Functions
   const fetchConnections = async () => {
@@ -273,13 +555,21 @@ function SettingsContent() {
         </Button>
         <h1 className="text-3xl font-bold text-slate-900 mb-2">Settings</h1>
         <p className="text-slate-600">
-          Manage your CRM connections, delivery options, and subscription
+          Manage your profile, performance targets, CRM connections, and subscription
         </p>
       </div>
 
       {/* Tabs */}
       <Tabs defaultValue={defaultTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-6 gap-1">
+          <TabsTrigger value="profile" className="flex items-center gap-2">
+            <UserCircle className="h-4 w-4" />
+            <span className="hidden sm:inline">Profile</span>
+          </TabsTrigger>
+          <TabsTrigger value="performance" className="flex items-center gap-2">
+            <Target className="h-4 w-4" />
+            <span className="hidden sm:inline">Performance</span>
+          </TabsTrigger>
           <TabsTrigger value="crm" className="flex items-center gap-2">
             <Database className="h-4 w-4" />
             <span className="hidden sm:inline">CRM</span>
@@ -297,6 +587,331 @@ function SettingsContent() {
             <span className="hidden sm:inline">Account</span>
           </TabsTrigger>
         </TabsList>
+
+        {/* Profile Tab */}
+        <TabsContent value="profile" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <UserCircle className="h-5 w-5" />
+                Sales Profile
+              </CardTitle>
+              <CardDescription>
+                Tell us about your role and sales process for personalized AI coaching
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loadingProfile ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="role">Role</Label>
+                      <Select
+                        value={profileData.role}
+                        onValueChange={(value) => setProfileData({ ...profileData, role: value })}
+                      >
+                        <SelectTrigger id="role">
+                          <SelectValue placeholder="Select your role" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ic">Individual Contributor (AE/SDR)</SelectItem>
+                          <SelectItem value="manager">Sales Manager</SelectItem>
+                          <SelectItem value="director">Director of Sales</SelectItem>
+                          <SelectItem value="vp">VP of Sales</SelectItem>
+                          <SelectItem value="c_level">C-Level (CRO/CEO)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <SavedValueDisplay
+                        value={savedProfileData.role}
+                        onClear={() => setProfileData({ ...profileData, role: "" })}
+                        getDisplayText={getRoleDisplayText}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="sellingMotion">Selling Motion</Label>
+                      <Select
+                        value={profileData.sellingMotion}
+                        onValueChange={(value) => setProfileData({ ...profileData, sellingMotion: value })}
+                      >
+                        <SelectTrigger id="sellingMotion">
+                          <SelectValue placeholder="Select selling motion" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="hunter">Hunter (New Logos)</SelectItem>
+                          <SelectItem value="farmer">Farmer (Account Management)</SelectItem>
+                          <SelectItem value="hybrid">Hybrid (Both)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <SavedValueDisplay
+                        value={savedProfileData.sellingMotion}
+                        onClear={() => setProfileData({ ...profileData, sellingMotion: "" })}
+                        getDisplayText={getSellingMotionDisplayText}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="yearsInSales">Years in Sales</Label>
+                      <Select
+                        value={profileData.yearsInSales}
+                        onValueChange={(value) => setProfileData({ ...profileData, yearsInSales: value })}
+                      >
+                        <SelectTrigger id="yearsInSales">
+                          <SelectValue placeholder="Select experience level" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="<1">Less than 1 year</SelectItem>
+                          <SelectItem value="1-3">1-3 years</SelectItem>
+                          <SelectItem value="3-5">3-5 years</SelectItem>
+                          <SelectItem value="5-10">5-10 years</SelectItem>
+                          <SelectItem value="10+">10+ years</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <SavedValueDisplay
+                        value={savedProfileData.yearsInSales}
+                        onClear={() => setProfileData({ ...profileData, yearsInSales: "" })}
+                        getDisplayText={getYearsDisplayText}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="methodology">Sales Methodology</Label>
+                      <Select
+                        value={profileData.salesMethodology}
+                        onValueChange={(value) => setProfileData({ ...profileData, salesMethodology: value })}
+                      >
+                        <SelectTrigger id="methodology">
+                          <SelectValue placeholder="Select methodology" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="meddic">MEDDIC</SelectItem>
+                          <SelectItem value="bant">BANT</SelectItem>
+                          <SelectItem value="sandler">Sandler</SelectItem>
+                          <SelectItem value="solution_selling">Solution Selling</SelectItem>
+                          <SelectItem value="challenger">Challenger Sale</SelectItem>
+                          <SelectItem value="custom">Custom/Proprietary</SelectItem>
+                          <SelectItem value="none">No formal methodology</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <SavedValueDisplay
+                        value={savedProfileData.salesMethodology}
+                        onClear={() => setProfileData({ ...profileData, salesMethodology: "" })}
+                        getDisplayText={getMethodologyDisplayText}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="salesCycle">Typical Sales Cycle</Label>
+                      <Select
+                        value={profileData.typicalSalesCycle}
+                        onValueChange={(value) => setProfileData({ ...profileData, typicalSalesCycle: value })}
+                      >
+                        <SelectTrigger id="salesCycle">
+                          <SelectValue placeholder="Select typical cycle" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="<30">Less than 30 days</SelectItem>
+                          <SelectItem value="30-60">30-60 days</SelectItem>
+                          <SelectItem value="60-90">60-90 days</SelectItem>
+                          <SelectItem value="90-180">90-180 days</SelectItem>
+                          <SelectItem value="180+">180+ days</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <SavedValueDisplay
+                        value={savedProfileData.typicalSalesCycle}
+                        onClear={() => setProfileData({ ...profileData, typicalSalesCycle: "" })}
+                        getDisplayText={getCycleDisplayText}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="dealSize">Typical Deal Size</Label>
+                      <Select
+                        value={profileData.typicalDealSize}
+                        onValueChange={(value) => setProfileData({ ...profileData, typicalDealSize: value })}
+                      >
+                        <SelectTrigger id="dealSize">
+                          <SelectValue placeholder="Select deal size" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="<10k">Less than $10K</SelectItem>
+                          <SelectItem value="10k-50k">$10K - $50K</SelectItem>
+                          <SelectItem value="50k-100k">$50K - $100K</SelectItem>
+                          <SelectItem value="100k-500k">$100K - $500K</SelectItem>
+                          <SelectItem value="500k+">$500K+</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <SavedValueDisplay
+                        value={savedProfileData.typicalDealSize}
+                        onClear={() => setProfileData({ ...profileData, typicalDealSize: "" })}
+                        getDisplayText={getDealSizeDisplayText}
+                      />
+                    </div>
+                  </div>
+
+                  <Button
+                    onClick={saveProfile}
+                    disabled={savingProfile}
+                    className="w-full"
+                  >
+                    {savingProfile ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-4 h-4 mr-2" />
+                        Save Profile
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Performance Tab */}
+        <TabsContent value="performance" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Target className="h-5 w-5" />
+                Revenue Targets
+              </CardTitle>
+              <CardDescription>
+                Set quarterly revenue targets for gap-to-quota tracking and AI coaching
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loadingTargets ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Add New Target Form */}
+                  <div className="space-y-4">
+                    <Label className="text-base">Set Revenue Target</Label>
+                    <div className="grid md:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="targetYear">Year</Label>
+                        <Select
+                          value={newTarget.year.toString()}
+                          onValueChange={(value) => setNewTarget({ ...newTarget, year: parseInt(value) })}
+                        >
+                          <SelectTrigger id="targetYear">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="2026">2026</SelectItem>
+                            <SelectItem value="2027">2027</SelectItem>
+                            <SelectItem value="2028">2028</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="targetQuarter">Quarter</Label>
+                        <Select
+                          value={newTarget.quarter.toString()}
+                          onValueChange={(value) => setNewTarget({ ...newTarget, quarter: parseInt(value) })}
+                        >
+                          <SelectTrigger id="targetQuarter">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="1">Q1</SelectItem>
+                            <SelectItem value="2">Q2</SelectItem>
+                            <SelectItem value="3">Q3</SelectItem>
+                            <SelectItem value="4">Q4</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="targetAmount">Target (USD)</Label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">$</span>
+                          <Input
+                            id="targetAmount"
+                            type="number"
+                            placeholder="500000"
+                            value={newTarget.target}
+                            onChange={(e) => setNewTarget({ ...newTarget, target: e.target.value })}
+                            className="pl-8"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <Button
+                      onClick={saveRevenueTarget}
+                      disabled={savingTarget}
+                      className="w-full"
+                    >
+                      {savingTarget ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-4 h-4 mr-2" />
+                          Add Revenue Target
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  {/* Saved Targets - shown below the button in blue boxes like Profile tab */}
+                  {revenueTargets.length > 0 && (
+                    <div className="space-y-2">
+                      {revenueTargets
+                        .sort((a, b) => {
+                          // Sort by year descending, then quarter descending
+                          if (a.year !== b.year) return b.year - a.year
+                          return b.quarter - a.quarter
+                        })
+                        .map((target) => (
+                          <div key={target.id} className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                            <div className="flex-1">
+                              <span className="font-medium text-blue-900">Current: </span>
+                              <span className="text-blue-900">Q{target.quarter} {target.year} - </span>
+                              <span className="font-bold text-blue-900">${target.target.toLocaleString()}</span>
+                              <span className="text-xs text-blue-600 ml-2">(set by {target.setBy})</span>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => deleteRevenueTarget(target.id)}
+                              className="h-6 w-6 p-0 hover:bg-blue-100"
+                            >
+                              <X className="h-4 w-4 text-blue-600" />
+                            </Button>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+
+                  {/* Info Alert */}
+                  <Alert className="bg-blue-50 border-blue-200">
+                    <TrendingUp className="h-4 w-4 text-blue-600" />
+                    <AlertDescription className="text-blue-800">
+                      Revenue targets enable gap-to-quota tracking, deal prioritization, and quota-aware AI coaching on every analysis.
+                      {revenueTargets.length === 0 && " Add your first target above to get started!"}
+                    </AlertDescription>
+                  </Alert>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         {/* CRM Tab */}
         <TabsContent value="crm" className="space-y-6">
